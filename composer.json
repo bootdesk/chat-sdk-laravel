@@ -2,6 +2,7 @@
     "name": "bootdesk/chat-sdk-laravel",
     "type": "library",
     "description": "Laravel integration for the PHP Chat SDK",
+    "license": "MIT",
     "require": {
         "php": ">=8.2",
         "bootdesk/chat-sdk-core": "*",
