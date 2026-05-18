@@ -1,0 +1,18 @@
+<?php
+
+namespace {{ namespace }};
+
+use BootDesk\ChatSDK\Core\Cards\Card;
+
+class {{ class }}Cards
+{
+    public static function toPlatformMarkdown(Card $card): string
+    {
+        return $card->getFallbackText();
+    }
+
+    public static function toPlainText(Card $card): string
+    {
+        return $card->getFallbackText();
+    }
+}
