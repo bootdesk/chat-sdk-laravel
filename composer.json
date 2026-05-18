@@ -1,42 +1,43 @@
 {
-    "name": "bootdesk/chat-sdk-laravel",
-    "type": "library",
-    "description": "Laravel integration for the PHP Chat SDK",
-    "license": "MIT",
-    "require": {
-        "php": ">=8.2",
-        "bootdesk/chat-sdk-core": "*",
-        "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
-        "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
-        "illuminate/routing": "^10.0|^11.0|^12.0|^13.0",
-        "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
-        "illuminate/cache": "^10.0|^11.0|^12.0|^13.0",
-        "symfony/psr-http-message-bridge": "^5.4|^6.0|^6.4|^7.0|^8.0",
-        "nyholm/psr7": "^1.0"
-    },
-    "require-dev": {
-        "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0"
-    },
-    "autoload": {
-        "psr-4": {
-            "BootDesk\\ChatSDK\\Laravel\\": "src/"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "BootDesk\\ChatSDK\\Laravel\\Tests\\": "tests/"
-        }
-    },
-    "extra": {
-        "laravel": {
-            "providers": [
-                "BootDesk\\ChatSDK\\Laravel\\ChatServiceProvider"
-            ],
-            "aliases": {
-                "Chat": "BootDesk\\ChatSDK\\Laravel\\ChatFacade"
-            }
-        }
-    },
-    "minimum-stability": "stable",
-    "prefer-stable": true
+  "name": "bootdesk/chat-sdk-laravel",
+  "type": "library",
+  "description": "Laravel integration for the PHP Chat SDK",
+  "license": "MIT",
+  "require": {
+    "php": ">=8.2",
+    "bootdesk/chat-sdk-core": "^0.2.3",
+    "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+    "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
+    "illuminate/routing": "^10.0|^11.0|^12.0|^13.0",
+    "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
+    "illuminate/cache": "^10.0|^11.0|^12.0|^13.0",
+    "symfony/psr-http-message-bridge": "^5.4|^6.0|^6.4|^7.0|^8.0",
+    "nyholm/psr7": "^1.0"
+  },
+  "require-dev": {
+    "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "BootDesk\\ChatSDK\\Laravel\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "BootDesk\\ChatSDK\\Laravel\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "BootDesk\\ChatSDK\\Laravel\\ChatServiceProvider"
+      ],
+      "aliases": {
+        "Chat": "BootDesk\\ChatSDK\\Laravel\\ChatFacade"
+      }
+    }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "version": "0.2.3"
 }
