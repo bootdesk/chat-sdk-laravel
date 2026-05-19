@@ -330,6 +330,9 @@ public function register(): void
 - `ResourceNotFoundException` — Adapter/thread not found
 - `ValidationException` — Invalid input data
 
+## Documentationn
+Full API documentation: https://bootdesk.github.io/chat-sdk
+
 ## License
 
 MIT
