@@ -7,7 +7,6 @@ use BootDesk\ChatSDK\Core\Contracts\AdapterHasMessagingWindow;
 use BootDesk\ChatSDK\Core\Contracts\SendingMiddleware;
 use BootDesk\ChatSDK\Core\Contracts\StateAdapter;
 use BootDesk\ChatSDK\Core\PostableMessage;
-use BootDesk\ChatSDK\Core\SentMessage;
 
 class EnforceMessagingWindow implements SendingMiddleware
 {
@@ -19,7 +18,7 @@ class EnforceMessagingWindow implements SendingMiddleware
         protected readonly mixed $templateFallback = null,
     ) {}
 
-    public function handle(string $threadId, PostableMessage $message, Adapter $adapter, string $operation, callable $next): ?SentMessage
+    public function handle(string $threadId, PostableMessage $message, Adapter $adapter, string $operation, callable $next): ?PostableMessage
     {
         if (! $adapter instanceof AdapterHasMessagingWindow) {
             return $next($threadId, $message, $adapter, $operation);

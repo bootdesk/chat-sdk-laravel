@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+namespace BootDesk\ChatSDK\Laravel\Broadcasting;
+
+use BootDesk\ChatSDK\Core\Contracts\BroadcastAdapter;
+use Illuminate\Broadcasting\BroadcastManager;
+use Illuminate\Support\ServiceProvider;
+
+class BroadcastServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->mergeConfigFrom(__DIR__.'/../../config/chat-broadcasting.php', 'chat-broadcasting');
+
+        $this->app->bind(BroadcastAdapter::class, function ($app): LaravelBroadcastAdapter {
+            return new LaravelBroadcastAdapter(
+                broadcastManager: $app->make(BroadcastManager::class),
+                broadcasterType: config('chat-broadcasting.default', 'pusher'),
+                channelPrefix: config('chat-broadcasting.channel_prefix', 'chat'),
+                threadChannelType: config('chat-broadcasting.thread_channel_type', 'public'),
+                userChannelType: config('chat-broadcasting.user_channel_type', 'private'),
+            );
+        });
+    }
+
+    public function boot(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__.'/../../config/chat-broadcasting.php' => config_path('chat-broadcasting.php'),
+            ], 'chat-config');
+        }
+    }
+}

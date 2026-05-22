@@ -217,17 +217,17 @@ class MultiTenantAdapterResolver implements AdapterResolver
         if ($tenantId === null || $tenantId === '') {
             return null;
         }
-        
+
         // Load tenant-specific credentials from database
         $config = DB::table('tenant_chat_configs')
             ->where('tenant_id', $tenantId)
             ->where('adapter', $name)
             ->first();
-            
+
         if (! $config) {
             return null;
         }
-        
+
         // Instantiate adapter with tenant credentials
         return match ($name) {
             'slack' => new SlackAdapter(
@@ -273,10 +273,10 @@ Chat::thread('slack:C123')->post('Hello!');
 
 ## Artisan Commands
 
-| Command | Description |
-|---------|-------------|
-| `php artisan chat:list` | List configured adapters |
-| `php artisan chat:install` | Publish config file |
+| Command                    | Description              |
+| -------------------------- | ------------------------ |
+| `php artisan chat:list`    | List configured adapters |
+| `php artisan chat:install` | Publish config file      |
 
 ## Queue Processing
 
@@ -324,6 +324,7 @@ public function register(): void
 ```
 
 **Exception types:**
+
 - `AuthenticationException` — Invalid credentials/tokens
 - `RateLimitException` — Platform rate limit exceeded
 - `AdapterException` — Generic adapter errors
@@ -331,6 +332,7 @@ public function register(): void
 - `ValidationException` — Invalid input data
 
 ## Documentationn
+
 Full API documentation: https://bootdesk.github.io/chat-sdk
 
 ## License

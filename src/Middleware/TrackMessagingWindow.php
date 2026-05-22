@@ -21,6 +21,6 @@ class TrackMessagingWindow implements ReceivingMiddleware
             $this->state->set($key, time(), (int) ($adapter->getMessagingWindowSeconds() * 1.5));
         }
 
-        return $next($message);
+        return $next($message, $adapter);
     }
 }

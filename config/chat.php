@@ -42,6 +42,9 @@ return [
         // ],
         // 'web' => [
         //     'user_name' => env('BOT_USERNAME', 'Bot'),
+        //     'config' => \App\Chat\WebAdapterConfig::class,  // extends BootDesk\ChatSDK\Web\WebAdapterConfig
+        //     'broadcaster' => fn () => app(\BootDesk\ChatSDK\Core\Contracts\BroadcastAdapter::class),
+        //     'async_mode' => env('CHAT_WEB_ASYNC_MODE', false),
         // ],
         // 'github' => [
         //     'auth_token' => env('GITHUB_TOKEN'),

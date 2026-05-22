@@ -212,7 +212,7 @@ class MiddlewareTest extends TestCase
         $middleware = new EnforceMessagingWindow($this->state);
 
         $nextCalled = false;
-        $middleware->handle(
+        $result = $middleware->handle(
             'whatsapp:123:user123',
             PostableMessage::text('test'),
             $this->windowedAdapter(),
@@ -225,6 +225,7 @@ class MiddlewareTest extends TestCase
         );
 
         $this->assertFalse($nextCalled);
+        $this->assertNull($result);
     }
 
     public function test_enforce_fallback_converts_message(): void
@@ -237,20 +238,21 @@ class MiddlewareTest extends TestCase
         );
 
         $captured = null;
-        $middleware->handle(
+        $result = $middleware->handle(
             'whatsapp:123:user123',
             PostableMessage::text('original'),
             $this->windowedAdapter(),
             'post',
-            function ($t, $m) use (&$captured) {
+            function ($t, PostableMessage $m) use (&$captured) {
                 $captured = $m;
 
-                return null;
+                return $m;
             },
         );
 
         $this->assertNotNull($captured);
         $this->assertSame('[Template] original', $captured->getTextContent());
+        $this->assertSame('[Template] original', $result->getTextContent());
     }
 
     public function test_enforce_skips_non_windowed(): void
