@@ -5,6 +5,7 @@ namespace BootDesk\ChatSDK\Laravel;
 use BootDesk\ChatSDK\Core\Chat;
 use BootDesk\ChatSDK\Core\Contracts\AdapterResolver;
 use BootDesk\ChatSDK\Core\Contracts\BroadcastAdapter;
+use BootDesk\ChatSDK\Core\Contracts\ConcurrencyHandler;
 use BootDesk\ChatSDK\Core\Contracts\FileUploadConverter;
 use BootDesk\ChatSDK\Core\Contracts\StateAdapter;
 use BootDesk\ChatSDK\Core\Support\AdapterRegistry;
@@ -12,6 +13,7 @@ use BootDesk\ChatSDK\Core\Support\NullFileUploadConverter;
 use BootDesk\ChatSDK\Laravel\Commands\ChatInstallCommand;
 use BootDesk\ChatSDK\Laravel\Commands\ChatListCommand;
 use BootDesk\ChatSDK\Laravel\Commands\ChatMakeAdapterCommand;
+use BootDesk\ChatSDK\Laravel\Concurrency\QueueConcurrencyHandler;
 use BootDesk\ChatSDK\Laravel\Contracts\ChatHandler as ChatHandlerContract;
 use BootDesk\ChatSDK\Laravel\Notifications\ChatChannel;
 use BootDesk\ChatSDK\Laravel\State\CacheStateAdapter;
@@ -44,6 +46,13 @@ class ChatServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->singleton(ConcurrencyHandler::class, function (Application $app): QueueConcurrencyHandler {
+            return new QueueConcurrencyHandler(
+                state: $app->make(StateAdapter::class),
+                config: config('chat', []),
+            );
+        });
+
         $this->app->singleton(Chat::class, function (Application $app): Chat {
             $identity = null;
             if ($app->bound('chat.identity')) {
@@ -59,8 +68,6 @@ class ChatServiceProvider extends ServiceProvider
                 state: $app->make(StateAdapter::class),
                 adapters: $this->resolveAdapters($app),
                 config: [
-                    'concurrency' => config('chat.concurrency', 'drop'),
-                    'lock_scope' => config('chat.lock_scope', 'thread'),
                     'logger' => $app->bound('log') ? $app->make('log') : null,
                 ],
                 adapterResolver: $app->bound(AdapterResolver::class) ?
@@ -69,6 +76,7 @@ class ChatServiceProvider extends ServiceProvider
                 identity: $identity,
                 transcripts: config('chat.transcripts'),
                 broadcaster: $broadcaster,
+                concurrencyHandler: $app->make(ConcurrencyHandler::class),
             );
         });
 

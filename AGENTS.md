@@ -3,10 +3,11 @@
 Laravel integration for the PHP Chat SDK. Namespace: `BootDesk\ChatSDK\Laravel`
 
 ## entrypoints
-- `ChatServiceProvider` — registers Chat singleton, `Chat::class` alias, `chat` alias
+- `ChatServiceProvider` — registers Chat singleton, `Chat::class` alias, `chat` alias; binds `ConcurrencyHandler::class` → `QueueConcurrencyHandler`
 - `ChatFacade` — `Chat` facade
 - `Http/Controllers/WebhookController` — single `handle` method for all platform webhooks
 - `State/CacheStateAdapter` — StateAdapter impl backed by Laravel cache (file, redis, etc.)
+- `Concurrency/QueueConcurrencyHandler` — Laravel-specific `ConcurrencyHandler` that dispatches jobs for async processing. `drop` strategy acquires a lock during the webhook: if acquired, dispatches `ProcessMessageJob` (lock released when job finishes); if not acquired, drops silently. Works uniformly across all adapter types (sync, async, unmarked).
 
 ## route example (routes/webhooks.php)
 ```php
@@ -19,7 +20,7 @@ Routes are NOT auto-registered — copy into app's routes file.
 - `state.store` — cache store name (default: `file`)
 - `state.prefix` — cache key prefix (default: `chat:`)
 - `handlers` — handler classes with `register($chat)` method
-- `concurrency` — drop/queue/debounce/concurrent
+- `concurrency` — drop/queue/debounce/concurrent (applied via `QueueConcurrencyHandler`)
 - `lock_scope` — thread/channel
 - `transcripts` — per-user message persistence config (requires `chat.identity` binding)
 
@@ -84,7 +85,8 @@ $chat
 - `chat:make-adapter` — stub generator for new adapters
 
 ## jobs
-- `Jobs/ProcessMessageJob` — queueable message processing (for `queue` concurrency strategy)
+- `Jobs/ProcessMessageJob` — queueable message processing (dispatched by `QueueConcurrencyHandler` for `queue`/`concurrent` strategies, and by `drop` with lock acquired). Releases the `process:` lock after handling, enabling subsequent `drop`-strategy messages to be processed.
+- `Jobs/ProcessDebouncedMessageJob` — unique delayed job for `debounce` strategy; fetches latest cached message when run. Does NOT restore `:last` cache key on re-dispatch (prevents infinite loops). `:latest`/`:skipped` restoration guarded against concurrent webhook races.
 
 ## middleware
 - `Http/Middleware/VerifyWebhookSignature` — optional PSR-15 middleware
@@ -100,3 +102,4 @@ $chat
 - Psr17Factory bound for all PSR-17 factories
 - Adapter classes receive constructor params camelCased from config (e.g. `bot_token` → `$botToken`)
 - `chat.identity` binding: closure `fn(Author $author): ?string` for transcript user resolution
+- `ConcurrencyHandler::class` bound to `QueueConcurrencyHandler` — override by rebinding in your service provider if you need custom concurrency behavior

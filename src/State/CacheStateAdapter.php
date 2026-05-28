@@ -9,6 +9,8 @@ use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\Lock as LaravelLock;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class CacheStateAdapter implements StateAdapter
 {
@@ -24,11 +26,12 @@ class CacheStateAdapter implements StateAdapter
 
     public function __construct(
         CacheFactory $cacheFactory,
-        string $store = 'file',
+        ?string $store = 'file',
         string $prefix = 'chat:',
     ) {
         /** @var Repository&LockProvider $cache */
         $cache = $cacheFactory->store($store);
+
         $this->cache = $cache;
         $this->prefix = $prefix;
     }
@@ -123,6 +126,7 @@ class CacheStateAdapter implements StateAdapter
 
     public function set(string $key, mixed $value, ?int $ttlMs = null): void
     {
+        Log::debug('Set', ['m' => serialize($value)]);
         $ttlSeconds = $ttlMs !== null ? max(1, (int) ceil($ttlMs / 1000)) : null;
         $this->cache->put($this->prefix.$key, $value, $ttlSeconds);
     }

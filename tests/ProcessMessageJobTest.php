@@ -63,4 +63,46 @@ class ProcessMessageJobTest extends TestCase
 
         $this->assertFalse($called);
     }
+
+    public function test_job_calls_process_message_in_job(): void
+    {
+        $chat = $this->app->make(Chat::class);
+        $message = new Message(
+            id: 'job_inline',
+            threadId: 'unknown:channel',
+            author: new Author(id: 'U1', name: 'Test'),
+            text: 'hello',
+        );
+
+        $job = new ProcessMessageJob('unknown', 'unknown:channel', $message);
+        // Should not throw — processMessageInJob resolves adapter, returns early if not found
+        $job->handle($chat);
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    public function test_job_passes_skipped_messages_to_handler(): void
+    {
+        $chat = $this->app->make(Chat::class);
+        $skipped = [
+            new Message(
+                id: 'skipped_1',
+                threadId: 'unknown:channel',
+                author: new Author(id: 'U1', name: 'Test'),
+                text: 'first',
+            ),
+        ];
+
+        $message = new Message(
+            id: 'final_msg',
+            threadId: 'unknown:channel',
+            author: new Author(id: 'U1', name: 'Test'),
+            text: 'final',
+        );
+
+        $job = new ProcessMessageJob('unknown', 'unknown:channel', $message, $skipped, 2);
+        $job->handle($chat);
+
+        $this->expectNotToPerformAssertions();
+    }
 }

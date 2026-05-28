@@ -52,6 +52,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static self addWebhookMiddleware(\BootDesk\ChatSDK\Core\Contracts\WebhookMiddleware $middleware)
  * @method static self addReceivingMiddleware(\BootDesk\ChatSDK\Core\Contracts\ReceivingMiddleware $middleware)
  * @method static self addSendingMiddleware(\BootDesk\ChatSDK\Core\Contracts\SendingMiddleware $middleware)
+ * @method static self addHeardMiddleware(\BootDesk\ChatSDK\Core\Contracts\HeardMiddleware $middleware)
  */
 class ChatFacade extends Facade
 {

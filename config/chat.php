@@ -74,7 +74,7 @@ return [
     |
     */
     'state' => [
-        'store' => env('CHAT_STATE_STORE', 'file'),
+        'store' => env('CHAT_STATE_STORE', env('CACHE_STORE', 'file')),
         'prefix' => env('CHAT_STATE_PREFIX', 'chat:'),
     ],
 

@@ -80,11 +80,9 @@ return [
         // \App\Chat\ChatHandlers::class,
     ],
 
-    // How to handle concurrent messages for the same thread:
-    // - drop: Discard new messages while one is being processed
-    // - queue: Queue messages and process sequentially
-    // - debounce: Reset timer, process only the latest
-    // - concurrent: Process all messages simultaneously
+    // How to handle concurrent messages for the same thread.
+    // Core strategies: drop (default), queue, debounce, concurrent.
+    // Laravel uses QueueConcurrencyHandler to dispatch jobs for async processing.
     'concurrency' => env('CHAT_CONCURRENCY', 'drop'),
 
     // Scope for distributed locks: 'thread' (default) or 'channel'.
@@ -280,13 +278,15 @@ Chat::thread('slack:C123')->post('Hello!');
 
 ## Queue Processing
 
-Incoming messages are processed asynchronously via `ProcessMessageJob`. Make sure your Laravel queue worker is running:
+The package binds `QueueConcurrencyHandler` as the default `ConcurrencyHandler`. It dispatches jobs as follows: `drop` acquires a lock during the webhook (dispatches `ProcessMessageJob` if acquired, drops silently if held — lock released when job finishes); `queue` and `concurrent` dispatch `ProcessMessageJob`; `debounce` dispatches `ProcessDebouncedMessageJob` (unique delayed job). The debounce job caches the latest message and a `:last` timestamp; on re-dispatch it does **not** restore `:last` — preventing infinite re-dispatch loops. `:latest` and `:skipped` restoration is guarded against overwriting concurrent webhook data. `RequiresSyncResponse` adapters always process inline (within the HTTP request) regardless of strategy.
+
+Make sure your Laravel queue worker is running:
 
 ```bash
 php artisan queue:work
 ```
 
-The job dispatches automatically when webhook requests arrive. No manual setup is needed beyond configuring your queue driver in `config/queue.php`.
+No manual setup is needed beyond configuring your queue driver in `config/queue.php`.
 
 ## State
 
