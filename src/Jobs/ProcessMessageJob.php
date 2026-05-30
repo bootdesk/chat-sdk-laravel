@@ -23,11 +23,13 @@ class ProcessMessageJob implements ShouldQueue
         private readonly int $totalSinceLastHandler = 1,
         private readonly ?string $lockKey = null,
         private readonly ?string $lockToken = null,
+        private readonly ?RequestContext $requestContext = null,
     ) {}
 
     public function handle(Chat $chat): void
     {
-        $adapter = $chat->resolveAdapter($this->adapterName);
+        $request = $this->requestContext?->toPsrRequest();
+        $adapter = $chat->resolveAdapter($this->adapterName, $request);
 
         if (! $adapter instanceof Adapter) {
             $this->releaseLock($chat);

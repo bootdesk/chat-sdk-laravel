@@ -280,6 +280,8 @@ Chat::thread('slack:C123')->post('Hello!');
 
 The package binds `QueueConcurrencyHandler` as the default `ConcurrencyHandler`. It dispatches jobs as follows: `drop` acquires a lock during the webhook (dispatches `ProcessMessageJob` if acquired, drops silently if held — lock released when job finishes); `queue` and `concurrent` dispatch `ProcessMessageJob`; `debounce` dispatches `ProcessDebouncedMessageJob` (unique delayed job). The debounce job caches the latest message and a `:last` timestamp; on re-dispatch it does **not** restore `:last` — preventing infinite re-dispatch loops. `:latest` and `:skipped` restoration is guarded against overwriting concurrent webhook data. `RequiresSyncResponse` adapters always process inline (within the HTTP request) regardless of strategy.
 
+When the original PSR-7 webhook request is available, `QueueConcurrencyHandler` serializes it into a `RequestContext` value object (method, URI, headers, body, query/parsed/server params, cookies, version) and passes it to every dispatched job. Both `ProcessMessageJob` and `ProcessDebouncedMessageJob` reconstruct the PSR-7 request and pass it to `Chat::resolveAdapter()` — so `AdapterResolver::resolve($name, $request)` receives the original request in both sync and queued contexts.
+
 Make sure your Laravel queue worker is running:
 
 ```bash

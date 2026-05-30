@@ -4,10 +4,28 @@ namespace BootDesk\ChatSDK\Laravel\Tests;
 
 use BootDesk\ChatSDK\Core\Author;
 use BootDesk\ChatSDK\Core\Chat;
+use BootDesk\ChatSDK\Core\Contracts\Adapter;
+use BootDesk\ChatSDK\Core\Contracts\AdapterResolver;
 use BootDesk\ChatSDK\Core\Message;
 use BootDesk\ChatSDK\Laravel\ChatServiceProvider;
 use BootDesk\ChatSDK\Laravel\Jobs\ProcessMessageJob;
+use BootDesk\ChatSDK\Laravel\Jobs\RequestContext;
+use BootDesk\ChatSDK\Laravel\Tests\Helpers\TestSyncAdapter;
+use Nyholm\Psr7\ServerRequest;
 use Orchestra\Testbench\TestCase;
+use Psr\Http\Message\ServerRequestInterface;
+
+class TestResolverSpy implements AdapterResolver
+{
+    public mixed $resolvedRequest = 'not_called';
+
+    public function resolve(string $name, ?ServerRequestInterface $request): ?Adapter
+    {
+        $this->resolvedRequest = $request;
+
+        return new TestSyncAdapter;
+    }
+}
 
 class ProcessMessageJobTest extends TestCase
 {
@@ -104,5 +122,59 @@ class ProcessMessageJobTest extends TestCase
         $job->handle($chat);
 
         $this->expectNotToPerformAssertions();
+    }
+
+    public function test_job_passes_request_context_to_adapter_resolver(): void
+    {
+        $resolver = new TestResolverSpy;
+
+        // Chat singleton is already resolved during provider boot. Forget so
+        // our resolver is injected on re-resolution.
+        $this->app->instance(AdapterResolver::class, $resolver);
+        $this->app->forgetInstance(Chat::class);
+
+        $chat = $this->app->make(Chat::class);
+
+        $context = RequestContext::fromServerRequest(
+            new ServerRequest('POST', '/hook', ['X-Tenant' => ['acme']], '{"event":"test"}'),
+        );
+
+        $message = new Message(
+            id: 'ctx_test',
+            threadId: 'test:ch:th',
+            author: new Author(id: 'U1', name: 'Test'),
+            text: 'hello',
+        );
+
+        $job = new ProcessMessageJob('test-foo', 'test:ch:th', $message, requestContext: $context);
+        $job->handle($chat);
+
+        $this->assertNotNull($resolver->resolvedRequest);
+        $this->assertSame('POST', $resolver->resolvedRequest->getMethod());
+        $this->assertSame('/hook', (string) $resolver->resolvedRequest->getUri());
+        $this->assertSame(['acme'], $resolver->resolvedRequest->getHeader('X-Tenant'));
+        $this->assertSame('{"event":"test"}', (string) $resolver->resolvedRequest->getBody());
+    }
+
+    public function test_job_passes_null_request_when_no_context(): void
+    {
+        $resolver = new TestResolverSpy;
+
+        $this->app->instance(AdapterResolver::class, $resolver);
+        $this->app->forgetInstance(Chat::class);
+
+        $chat = $this->app->make(Chat::class);
+
+        $message = new Message(
+            id: 'no_ctx',
+            threadId: 'test:ch:th',
+            author: new Author(id: 'U1', name: 'Test'),
+            text: 'hello',
+        );
+
+        $job = new ProcessMessageJob('test-bar', 'test:ch:th', $message);
+        $job->handle($chat);
+
+        $this->assertNull($resolver->resolvedRequest);
     }
 }

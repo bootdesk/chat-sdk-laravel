@@ -21,6 +21,7 @@ class ProcessDebouncedMessageJob implements ShouldBeUniqueUntilProcessing, Shoul
         private readonly string $threadId,
         private readonly string $debounceKey,
         private readonly int $debounceMs,
+        private readonly ?RequestContext $requestContext = null,
     ) {}
 
     public function uniqueId(): string
@@ -30,7 +31,8 @@ class ProcessDebouncedMessageJob implements ShouldBeUniqueUntilProcessing, Shoul
 
     public function handle(Chat $chat): void
     {
-        $adapter = $chat->resolveAdapter($this->adapterName);
+        $request = $this->requestContext?->toPsrRequest();
+        $adapter = $chat->resolveAdapter($this->adapterName, $request);
 
         if (! $adapter instanceof Adapter) {
             return;
@@ -62,7 +64,7 @@ class ProcessDebouncedMessageJob implements ShouldBeUniqueUntilProcessing, Shoul
             }
 
             Bus::dispatch(tap(
-                new self($this->adapterName, $this->threadId, $this->debounceKey, $this->debounceMs),
+                new self($this->adapterName, $this->threadId, $this->debounceKey, $this->debounceMs, $this->requestContext),
                 fn (self $job) => $job->delay(now()->addMilliseconds(max(1, $remainingMs))),
             ));
 

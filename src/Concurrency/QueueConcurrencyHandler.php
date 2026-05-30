@@ -14,10 +14,14 @@ use BootDesk\ChatSDK\Core\Lock;
 use BootDesk\ChatSDK\Core\Message;
 use BootDesk\ChatSDK\Laravel\Jobs\ProcessDebouncedMessageJob;
 use BootDesk\ChatSDK\Laravel\Jobs\ProcessMessageJob;
+use BootDesk\ChatSDK\Laravel\Jobs\RequestContext;
 use Illuminate\Support\Facades\Bus;
+use Psr\Http\Message\ServerRequestInterface;
 
 class QueueConcurrencyHandler implements ConcurrencyHandler
 {
+    private ?RequestContext $requestContext = null;
+
     public function __construct(
         private readonly StateAdapter $state,
         private readonly array $config = [],
@@ -28,7 +32,12 @@ class QueueConcurrencyHandler implements ConcurrencyHandler
         string $threadId,
         Message $message,
         callable $processCallback,
+        ?ServerRequestInterface $request = null,
     ): void {
+        $this->requestContext = $request instanceof ServerRequestInterface
+            ? RequestContext::fromServerRequest($request)
+            : null;
+
         $strategy = Strategy::tryFrom($this->config['concurrency'] ?? 'drop') ?? Strategy::Drop;
         $debounceMs = (int) ($this->config['debounceMs'] ?? 1500);
         $lockScope = $this->config['lockScope'] ?? 'thread';
@@ -103,6 +112,7 @@ class QueueConcurrencyHandler implements ConcurrencyHandler
             message: $message,
             lockKey: "process:{$lockKey}",
             lockToken: $lock->token,
+            requestContext: $this->requestContext,
         ));
     }
 
@@ -127,6 +137,7 @@ class QueueConcurrencyHandler implements ConcurrencyHandler
             adapterName: $adapter->getName(),
             threadId: $threadId,
             message: $message,
+            requestContext: $this->requestContext,
         ));
     }
 
@@ -156,6 +167,7 @@ class QueueConcurrencyHandler implements ConcurrencyHandler
                 threadId: $threadId,
                 debounceKey: $debounceKey,
                 debounceMs: $debounceMs,
+                requestContext: $this->requestContext,
             ),
             fn (ProcessDebouncedMessageJob $job) => $job->delay(now()->addMilliseconds($debounceMs)),
         ));

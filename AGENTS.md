@@ -87,6 +87,10 @@ $chat
 ## jobs
 - `Jobs/ProcessMessageJob` — queueable message processing (dispatched by `QueueConcurrencyHandler` for `queue`/`concurrent` strategies, and by `drop` with lock acquired). Releases the `process:` lock after handling, enabling subsequent `drop`-strategy messages to be processed.
 - `Jobs/ProcessDebouncedMessageJob` — unique delayed job for `debounce` strategy; fetches latest cached message when run. Does NOT restore `:last` cache key on re-dispatch (prevents infinite loops). `:latest`/`:skipped` restoration guarded against concurrent webhook races.
+- `Jobs/RequestContext` — serializable value object capturing PSR-7 request data (method, uri, headers, body, query/parsed/server params, cookies, version). Created by `QueueConcurrencyHandler::process()` from the original webhook request, passed to both job types. `toPsrRequest()` reconstructs a `ServerRequestInterface` in `handle()` — enables `AdapterResolver` to receive the original request even in queued context.
+
+## adapter resolution (job context)
+Both `ProcessMessageJob` and `ProcessDebouncedMessageJob` pass the reconstructed PSR-7 request to `Chat::resolveAdapter()`. When `AdapterResolver` is registered, `resolve(name, request)` now receives the original request (method, URI, headers, body, query params, parsed body, cookies, server params) in sync AND job contexts. Previously `$request` was always `null` in jobs.
 
 ## middleware
 - `Http/Middleware/VerifyWebhookSignature` — optional PSR-15 middleware
