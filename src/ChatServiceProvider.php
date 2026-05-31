@@ -65,9 +65,6 @@ class ChatServiceProvider extends ServiceProvider
             return new ChatFactory(
                 app: $app,
                 handlerRegistry: $app->make(HandlerRegistry::class),
-                state: $app->make(StateAdapter::class),
-                concurrency: $app->make(ConcurrencyHandler::class),
-                responseFactory: $app->make(ResponseFactoryInterface::class),
             );
         });
     }

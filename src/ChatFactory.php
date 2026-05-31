@@ -24,9 +24,6 @@ class ChatFactory
     public function __construct(
         private readonly Application $app,
         private readonly HandlerRegistry $handlerRegistry,
-        private readonly StateAdapter $state,
-        private readonly ConcurrencyHandler $concurrency,
-        private readonly ResponseFactoryInterface $responseFactory,
     ) {}
 
     public function forGroup(string $group): Chat
@@ -64,18 +61,18 @@ class ChatFactory
         }
 
         return new Chat(
-            state: $this->state,
+            state: $this->app->make(StateAdapter::class),
             adapters: $this->getAdapters(),
             config: [
                 'logger' => $this->app->bound('log') ? $this->app->make('log') : null,
             ],
             adapterResolver: $this->app->bound(AdapterResolver::class) ?
                 $this->app->make(AdapterResolver::class) : null,
-            responseFactory: $this->responseFactory,
+            responseFactory: $this->app->make(ResponseFactoryInterface::class),
             identity: $identity,
             transcripts: config('chat.transcripts'),
             broadcaster: $broadcaster,
-            concurrencyHandler: $this->concurrency,
+            concurrencyHandler: $this->app->make(ConcurrencyHandler::class),
         );
     }
 
