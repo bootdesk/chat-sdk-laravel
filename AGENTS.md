@@ -3,9 +3,10 @@
 Laravel integration for the PHP Chat SDK. Namespace: `BootDesk\ChatSDK\Laravel`
 
 ## entrypoints
-- `ChatServiceProvider` — registers Chat singleton, `Chat::class` alias, `chat` alias; binds `ConcurrencyHandler::class` → `QueueConcurrencyHandler`
-- `ChatFacade` — `Chat` facade
-- `Http/Controllers/WebhookController` — single `handle` method for all platform webhooks
+- `ChatServiceProvider` — registers `HandlerRegistry`, `ChatFactory` singletons; binds `ConcurrencyHandler::class` → `QueueConcurrencyHandler`
+- `ChatFactory` — composes `Chat` instances scoped to a handler group (`forGroup()`) or global-only (`default()`)
+- `HandlerRegistry` — stores handler class names by group (global + per-adapter)
+- `Http/Controllers/WebhookController` — single `handle` method, injects `ChatFactory`, calls `forGroup($adapter)`
 - `State/CacheStateAdapter` — StateAdapter impl backed by Laravel cache (file, redis, etc.)
 - `Concurrency/QueueConcurrencyHandler` — Laravel-specific `ConcurrencyHandler` that dispatches jobs for async processing. `drop` strategy acquires a lock during the webhook: if acquired, dispatches `ProcessMessageJob` (lock released when job finishes); if not acquired, drops silently. Works uniformly across all adapter types (sync, async, unmarked).
 
@@ -19,7 +20,8 @@ Routes are NOT auto-registered — copy into app's routes file.
 - `adapters` — map of name → config (bot_token, signing_secret, etc.)
 - `state.store` — cache store name (default: `file`)
 - `state.prefix` — cache key prefix (default: `chat:`)
-- `handlers` — handler classes with `register($chat)` method
+- `handlers` — global handler classes (always registered)
+- `handler_groups` — adapter-scoped handler groups (e.g. `slack => [Handler::class]`)
 - `concurrency` — drop/queue/debounce/concurrent (applied via `QueueConcurrencyHandler`)
 - `lock_scope` — thread/channel
 - `transcripts` — per-user message persistence config (requires `chat.identity` binding)
@@ -85,8 +87,8 @@ $chat
 - `chat:make-adapter` — stub generator for new adapters
 
 ## jobs
-- `Jobs/ProcessMessageJob` — queueable message processing (dispatched by `QueueConcurrencyHandler` for `queue`/`concurrent` strategies, and by `drop` with lock acquired). Releases the `process:` lock after handling, enabling subsequent `drop`-strategy messages to be processed.
-- `Jobs/ProcessDebouncedMessageJob` — unique delayed job for `debounce` strategy; fetches latest cached message when run. Does NOT restore `:last` cache key on re-dispatch (prevents infinite loops). `:latest`/`:skipped` restoration guarded against concurrent webhook races.
+- `Jobs/ProcessMessageJob` — queueable message processing (dispatched by `QueueConcurrencyHandler` for `queue`/`concurrent` strategies, and by `drop` with lock acquired). `handle(ChatFactory)` resolves a Chat scoped to `$this->adapterName`. Releases the `process:` lock after handling.
+- `Jobs/ProcessDebouncedMessageJob` — unique delayed job for `debounce` strategy; fetches latest cached message when run. `handle(ChatFactory)` resolves a Chat scoped to `$this->adapterName`. Does NOT restore `:last` cache key on re-dispatch (prevents infinite loops). `:latest`/`:skipped` restoration guarded against concurrent webhook races.
 - `Jobs/RequestContext` — serializable value object capturing PSR-7 request data (method, uri, headers, body, query/parsed/server params, cookies, version). Created by `QueueConcurrencyHandler::process()` from the original webhook request, passed to both job types. `toPsrRequest()` reconstructs a `ServerRequestInterface` in `handle()` — enables `AdapterResolver` to receive the original request even in queued context.
 
 ## adapter resolution (job context)

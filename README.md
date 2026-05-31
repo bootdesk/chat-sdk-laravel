@@ -74,10 +74,21 @@ return [
         'prefix' => env('CHAT_STATE_PREFIX', 'chat:'),
     ],
 
-    // Classes that register message handlers on the Chat instance.
-    // Each class must implement a register($chat) method.
+    // Global handler classes registered on every Chat instance regardless
+    // of adapter. Each class must implement a register($chat) method.
     'handlers' => [
-        // \App\Chat\ChatHandlers::class,
+        // \App\Chat\GlobalHandlers::class,
+    ],
+
+    // Adapter-specific handler groups. Only the matching group is
+    // registered per webhook request, alongside global handlers above.
+    'handler_groups' => [
+        // 'slack' => [
+        //     \App\Chat\SlackHandler::class,
+        // ],
+        // 'telegram' => [
+        //     \App\Chat\TelegramHandler::class,
+        // ],
     ],
 
     // How to handle concurrent messages for the same thread.
@@ -140,8 +151,20 @@ class ChatHandlers implements ChatHandlerContract
 Register it in `config/chat.php`:
 
 ```php
+// Global — fires for every adapter
 'handlers' => [\App\Chat\ChatHandlers::class],
 ```
+
+Or scoped to a specific adapter group:
+
+```php
+'handler_groups' => [
+    'slack' => [\App\Chat\SlackHandlers::class],
+    'telegram' => [\App\Chat\TelegramHandlers::class],
+],
+```
+
+When a webhook arrives for `slack`, both `global` and `slack` group handlers are registered. `telegram` group handlers are skipped.
 
 ## Middleware
 
@@ -261,12 +284,32 @@ public function register(): void
 
 **Resolution order:** Tenant-specific (resolver) → Global (config). Tenants can override specific adapters while falling back to global defaults for others.
 
-## Facade
+## Injecting ChatFactory
+
+To send messages programmatically, inject `ChatFactory` and get a Chat instance:
 
 ```php
-use BootDesk\ChatSDK\Laravel\ChatFacade as Chat;
+use BootDesk\ChatSDK\Laravel\ChatFactory;
 
-Chat::thread('slack:C123')->post('Hello!');
+class MessageController
+{
+    public function __construct(
+        private ChatFactory $chatFactory,
+    ) {}
+
+    public function send()
+    {
+        $chat = $this->chatFactory->default(); // global handlers only
+        $chat->thread('slack:C123')->post('Hello!');
+    }
+}
+```
+
+Or for adapter-specific handlers:
+
+```php
+$chat = $this->chatFactory->forGroup('slack'); // global + slack handlers
+$chat->handleWebhook('slack', $psrRequest);
 ```
 
 ## Artisan Commands

@@ -23,7 +23,7 @@ class ChatInstallCommand extends Command
         $this->line('  1. Edit config/chat.php to configure your adapters');
         $this->line('  2. Set webhook URLs in your platform:');
         $this->line('     https://your-app.com/api/webhooks/{adapter}');
-        $this->line('  3. Create a handler class and add it to config(chat.handlers)');
+        $this->line('  3. Create handler classes and add them to config(chat.handlers) or config(chat.handler_groups)');
         $this->newLine();
 
         return self::SUCCESS;

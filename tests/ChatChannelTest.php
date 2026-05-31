@@ -15,6 +15,7 @@ use BootDesk\ChatSDK\Core\SentMessage;
 use BootDesk\ChatSDK\Core\Tests\Helpers\MemoryStateAdapter;
 use BootDesk\ChatSDK\Core\ThreadInfo;
 use BootDesk\ChatSDK\Core\UserInfo;
+use BootDesk\ChatSDK\Laravel\ChatFactory;
 use BootDesk\ChatSDK\Laravel\Notifications\ChatChannel;
 use BootDesk\ChatSDK\Laravel\Notifications\ChatRoute;
 use Illuminate\Notifications\Notification;
@@ -135,7 +136,10 @@ class ChatChannelTest extends TestCase
             responseFactory: new Psr17Factory,
         );
 
-        $this->channel = new ChatChannel($this->chat);
+        $chatFactory = $this->createMock(ChatFactory::class);
+        $chatFactory->method('default')->willReturn($this->chat);
+
+        $this->channel = new ChatChannel($chatFactory);
     }
 
     public function test_send_without_to_chat_method(): void

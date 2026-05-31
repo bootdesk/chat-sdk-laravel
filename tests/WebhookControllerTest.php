@@ -2,7 +2,7 @@
 
 namespace BootDesk\ChatSDK\Laravel\Tests;
 
-use BootDesk\ChatSDK\Core\Chat;
+use BootDesk\ChatSDK\Core\Support\AdapterRegistry;
 use BootDesk\ChatSDK\Core\Tests\Helpers\MockAdapter;
 use BootDesk\ChatSDK\Laravel\ChatServiceProvider;
 use BootDesk\ChatSDK\Laravel\Http\Controllers\WebhookController;
@@ -11,8 +11,6 @@ use Orchestra\Testbench\TestCase;
 
 class WebhookControllerTest extends TestCase
 {
-    private MockAdapter $mockAdapter;
-
     protected function getPackageProviders($app): array
     {
         return [ChatServiceProvider::class];
@@ -21,18 +19,13 @@ class WebhookControllerTest extends TestCase
     protected function getEnvironmentSetUp($app): void
     {
         $app['config']->set('cache.default', 'array');
+        $app['config']->set('chat.adapters', [
+            'mock' => [],
+        ]);
 
-        // Register webhook route manually (package doesn't auto-register routes)
+        AdapterRegistry::register('mock', MockAdapter::class);
+
         Route::match(['get', 'post'], '/api/webhooks/{adapter}', [WebhookController::class, 'handle']);
-
-        // Bind a mock adapter for testing
-        $this->mockAdapter = new MockAdapter;
-
-        $app->extend(Chat::class, function (Chat $chat, $app) {
-            $chat->registerAdapter('mock', $this->mockAdapter);
-
-            return $chat;
-        });
     }
 
     public function test_webhook_returns_200(): void

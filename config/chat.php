@@ -80,15 +80,34 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Handler Classes
+    | Global Handler Classes
     |--------------------------------------------------------------------------
     |
-    | Classes that register message handlers on the Chat instance.
-    | Each class must implement a register($chat) method.
+    | Classes that register message handlers on every Chat instance regardless
+    | of adapter. Each class must implement a register($chat) method.
     |
     */
     'handlers' => [
-        // \App\Chat\ChatHandlers::class,
+        // \App\Chat\GlobalHandlers::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Adapter-specific Handler Groups
+    |--------------------------------------------------------------------------
+    |
+    | Handler classes grouped by adapter name. Only the matching group is
+    | registered per webhook request, alongside the global handlers above.
+    | Each class must implement a register($chat) method.
+    |
+    */
+    'handler_groups' => [
+        // 'slack' => [
+        //     \App\Chat\SlackHandler::class,
+        // ],
+        // 'telegram' => [
+        //     \App\Chat\TelegramHandler::class,
+        // ],
     ],
 
     /*

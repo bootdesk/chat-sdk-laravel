@@ -8,6 +8,7 @@ use BootDesk\ChatSDK\Core\Chat;
 use BootDesk\ChatSDK\Core\Contracts\Adapter;
 use BootDesk\ChatSDK\Core\Lock;
 use BootDesk\ChatSDK\Core\Message;
+use BootDesk\ChatSDK\Laravel\ChatFactory;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
@@ -26,8 +27,9 @@ class ProcessMessageJob implements ShouldQueue
         private readonly ?RequestContext $requestContext = null,
     ) {}
 
-    public function handle(Chat $chat): void
+    public function handle(ChatFactory $chatFactory): void
     {
+        $chat = $chatFactory->forGroup($this->adapterName);
         $request = $this->requestContext?->toPsrRequest();
         $adapter = $chat->resolveAdapter($this->adapterName, $request);
 

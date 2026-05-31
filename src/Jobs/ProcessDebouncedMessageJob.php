@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace BootDesk\ChatSDK\Laravel\Jobs;
 
-use BootDesk\ChatSDK\Core\Chat;
 use BootDesk\ChatSDK\Core\Contracts\Adapter;
 use BootDesk\ChatSDK\Core\Message;
+use BootDesk\ChatSDK\Laravel\ChatFactory;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -29,8 +29,9 @@ class ProcessDebouncedMessageJob implements ShouldBeUniqueUntilProcessing, Shoul
         return $this->debounceKey;
     }
 
-    public function handle(Chat $chat): void
+    public function handle(ChatFactory $chatFactory): void
     {
+        $chat = $chatFactory->forGroup($this->adapterName);
         $request = $this->requestContext?->toPsrRequest();
         $adapter = $chat->resolveAdapter($this->adapterName, $request);
 

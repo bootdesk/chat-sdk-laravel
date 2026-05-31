@@ -2,16 +2,16 @@
 
 namespace BootDesk\ChatSDK\Laravel\Notifications;
 
-use BootDesk\ChatSDK\Core\Chat;
 use BootDesk\ChatSDK\Core\Contracts\Adapter;
 use BootDesk\ChatSDK\Core\PostableMessage;
 use BootDesk\ChatSDK\Core\SentMessage;
+use BootDesk\ChatSDK\Laravel\ChatFactory;
 use Illuminate\Notifications\Notification;
 
 class ChatChannel
 {
     public function __construct(
-        protected Chat $chat,
+        protected ChatFactory $chatFactory,
     ) {}
 
     public function send(object $notifiable, Notification $notification): ?SentMessage
@@ -32,16 +32,18 @@ class ChatChannel
             return null;
         }
 
+        $chat = $this->chatFactory->default();
+
         if ($route->threadId !== null) {
-            return $this->chat->thread($route->threadId)->post($message);
+            return $chat->thread($route->threadId)->post($message);
         }
 
         if ($route->channelId !== null) {
-            return $this->chat->channel($route->channelId)->post($message);
+            return $chat->channel($route->channelId)->post($message);
         }
 
         if ($route->userId !== null) {
-            $adapter = $this->chat->resolveAdapter($route->adapter);
+            $adapter = $chat->resolveAdapter($route->adapter);
             if (! $adapter instanceof Adapter) {
                 return null;
             }
