@@ -19,6 +19,7 @@ class RequestContext
         public readonly array $serverParams,
         public readonly array $cookies,
         public readonly string $version,
+        public readonly array $requestAttributes = [],
     ) {}
 
     public static function fromServerRequest(ServerRequestInterface $request): self
@@ -37,6 +38,7 @@ class RequestContext
             serverParams: $request->getServerParams(),
             cookies: $request->getCookieParams(),
             version: $request->getProtocolVersion(),
+            requestAttributes: $request->getAttributes()
         );
     }
 
@@ -50,6 +52,13 @@ class RequestContext
             $this->version,
             $this->serverParams,
         );
+
+        foreach ($this->requestAttributes as $attributeName => $attributeValue) {
+            $serverRequest = $serverRequest->withAttribute(
+                attribute: $attributeName,
+                value: $attributeValue
+            );
+        }
 
         return $serverRequest
             ->withQueryParams($this->queryParams)
