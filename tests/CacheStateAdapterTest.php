@@ -5,7 +5,6 @@ namespace BootDesk\ChatSDK\Laravel\Tests;
 use BootDesk\ChatSDK\Core\Lock;
 use BootDesk\ChatSDK\Core\QueueEntry;
 use BootDesk\ChatSDK\Laravel\State\CacheStateAdapter;
-use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Orchestra\Testbench\TestCase;
 
 class CacheStateAdapterTest extends TestCase
@@ -21,8 +20,6 @@ class CacheStateAdapterTest extends TestCase
     {
         parent::setUp();
         $this->adapter = new CacheStateAdapter(
-            cacheFactory: $this->app->make(CacheFactory::class),
-            store: 'array',
             prefix: 'test:',
         );
     }

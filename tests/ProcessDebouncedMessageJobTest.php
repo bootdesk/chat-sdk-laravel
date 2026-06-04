@@ -29,7 +29,6 @@ class ProcessDebouncedMessageJobTest extends TestCase
     protected function getEnvironmentSetUp($app): void
     {
         $app['config']->set('cache.default', 'array');
-        $app['config']->set('chat.state.store', 'array');
     }
 
     protected function setUp(): void

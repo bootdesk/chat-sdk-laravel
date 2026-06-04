@@ -18,7 +18,6 @@ Routes are NOT auto-registered — copy into app's routes file.
 
 ## config (config/chat.php)
 - `adapters` — map of name → config (bot_token, signing_secret, etc.)
-- `state.store` — cache store name (default: `file`)
 - `state.prefix` — cache key prefix (default: `chat:`)
 - `handlers` — global handler classes (always registered)
 - `handler_groups` — adapter-scoped handler groups (e.g. `slack => [Handler::class]`)

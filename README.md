@@ -66,11 +66,10 @@ return [
         // ],
     ],
 
-    // Cache store used for state persistence. Any Laravel cache store
-    // works: file, redis, database, memcached, array. Configure the
-    // store in config/cache.php as usual.
+    // State persistence backed by the Laravel Cache facade. The cache
+    // store is resolved from the facade at runtime — configure it in
+    // config/cache.php as usual.
     'state' => [
-        'store' => env('CHAT_STATE_STORE', 'file'),
         'prefix' => env('CHAT_STATE_PREFIX', 'chat:'),
     ],
 
@@ -335,7 +334,7 @@ No manual setup is needed beyond configuring your queue driver in `config/queue.
 
 ## State
 
-State persistence uses Laravel's cache system. Set `CHAT_STATE_STORE` to any Laravel cache driver (`file`, `redis`, `database`, `memcached`, `array`). The cache store is configured in `config/cache.php` as usual.
+State persistence uses the Laravel `Cache` facade. The cache store is resolved from the facade at runtime — configure it in `config/cache.php` as usual.
 
 ## Error Handling
 
@@ -376,7 +375,7 @@ public function register(): void
 - `ResourceNotFoundException` — Adapter/thread not found
 - `ValidationException` — Invalid input data
 
-## Documentationn
+## Documentation
 
 Full API documentation: https://bootdesk.github.io/chat-sdk
 

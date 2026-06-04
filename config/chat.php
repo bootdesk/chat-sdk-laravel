@@ -68,13 +68,12 @@ return [
     | State Adapter
     |--------------------------------------------------------------------------
     |
-    | Cache store used for state persistence. Any Laravel cache store works:
-    | file, redis, database, memcached, array. Configure the store in
-    | config/cache.php as usual.
+    | State persistence backed by the Laravel Cache facade. The cache store
+    | is resolved from the facade at runtime — configure it in config/cache.php
+    | as usual.
     |
     */
     'state' => [
-        'store' => env('CHAT_STATE_STORE', env('CACHE_STORE', 'file')),
         'prefix' => env('CHAT_STATE_PREFIX', 'chat:'),
     ],
 

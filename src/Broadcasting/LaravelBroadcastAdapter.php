@@ -6,46 +6,26 @@ namespace BootDesk\ChatSDK\Laravel\Broadcasting;
 
 use BootDesk\ChatSDK\Core\Broadcasting\BroadcastEvent;
 use BootDesk\ChatSDK\Core\Contracts\BroadcastAdapter;
-use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\Broadcaster;
+use Illuminate\Support\Facades\Broadcast;
 
 class LaravelBroadcastAdapter implements BroadcastAdapter
 {
-    protected ?Broadcaster $broadcaster = null;
-
-    protected bool $connected = false;
-
     public function __construct(
-        protected readonly BroadcastManager $broadcastManager,
         protected string $broadcasterType = 'pusher',
         protected string $channelPrefix = 'chat',
         protected string $threadChannelType = 'public',
         protected string $userChannelType = 'private',
     ) {}
 
-    public function connect(): void
-    {
-        if ($this->connected) {
-            return;
-        }
+    public function connect(): void {}
 
-        $this->broadcaster = $this->broadcastManager->connection($this->broadcasterType);
-        $this->connected = true;
-    }
-
-    public function disconnect(): void
-    {
-        $this->connected = false;
-        $this->broadcaster = null;
-    }
+    public function disconnect(): void {}
 
     public function broadcast(string $threadId, BroadcastEvent $event, array $options = []): void
     {
-        $this->ensureConnected();
-
         $channel = match ($this->threadChannelType) {
             'presence' => $this->buildPresenceChannelForThread($threadId),
             'private' => $this->buildPrivateChannelForThread($threadId),
@@ -53,7 +33,7 @@ class LaravelBroadcastAdapter implements BroadcastAdapter
         };
         $eventName = $this->buildEventName($event->type);
 
-        $this->broadcaster->broadcast(
+        Broadcast::connection($this->broadcasterType)->broadcast(
             [$channel],
             $eventName,
             $event->toArray()
@@ -62,8 +42,6 @@ class LaravelBroadcastAdapter implements BroadcastAdapter
 
     public function broadcastToUser(string $threadId, string|array $userIds, BroadcastEvent $event, array $options = []): void
     {
-        $this->ensureConnected();
-
         $userIds = is_array($userIds) ? $userIds : [$userIds];
 
         foreach ($userIds as $userId) {
@@ -73,7 +51,7 @@ class LaravelBroadcastAdapter implements BroadcastAdapter
             };
             $eventName = $this->buildEventName($event->type);
 
-            $this->broadcaster->broadcast(
+            Broadcast::connection($this->broadcasterType)->broadcast(
                 [$channel],
                 $eventName,
                 $event->toArray()
@@ -83,14 +61,7 @@ class LaravelBroadcastAdapter implements BroadcastAdapter
 
     public function isBroadcastingAvailable(string $threadId): bool
     {
-        return $this->connected && $this->broadcaster instanceof Broadcaster;
-    }
-
-    protected function ensureConnected(): void
-    {
-        if (! $this->connected) {
-            throw new \RuntimeException('LaravelBroadcastAdapter is not connected. Call connect() first.');
-        }
+        return true;
     }
 
     protected function buildChannelName(string $threadId): string

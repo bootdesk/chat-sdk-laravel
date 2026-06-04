@@ -11,7 +11,6 @@ use BootDesk\ChatSDK\Laravel\Concurrency\QueueConcurrencyHandler;
 use BootDesk\ChatSDK\Laravel\Notifications\ChatChannel;
 use BootDesk\ChatSDK\Laravel\State\CacheStateAdapter;
 use GuzzleHttp\Client as GuzzleClient;
-use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -30,10 +29,8 @@ class ChatServiceProvider extends ServiceProvider
         $this->bindPsr17();
         $this->bindHttpClient();
 
-        $this->app->singleton(StateAdapter::class, function (Application $app): CacheStateAdapter {
+        $this->app->singleton(StateAdapter::class, function (): CacheStateAdapter {
             return new CacheStateAdapter(
-                cacheFactory: $app->make(CacheFactory::class),
-                store: config('chat.state.store', 'file'),
                 prefix: config('chat.state.prefix', 'chat:'),
             );
         });
