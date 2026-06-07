@@ -31,6 +31,12 @@ class HandlerRegistry
         return $handlers;
     }
 
+    /** @return string[] */
+    public function handlersForGroup(string $group): array
+    {
+        return $this->groups[$group] ?? [];
+    }
+
     public function hasGroup(string $group): bool
     {
         return isset($this->groups[$group]);

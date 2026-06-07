@@ -43,7 +43,7 @@ class ProcessMessageJobTest extends TestCase
     private function mockChatFactory(Chat $chat): ChatFactory
     {
         $factory = $this->createMock(ChatFactory::class);
-        $factory->method('forGroup')->willReturn($chat);
+        $factory->method('forGroups')->willReturn($chat);
 
         return $factory;
     }
@@ -177,5 +177,51 @@ class ProcessMessageJobTest extends TestCase
         $job->handle($this->mockChatFactory($chat));
 
         $this->assertNull($resolver->resolvedRequest);
+    }
+
+    public function test_job_uses_groups_from_request_attribute(): void
+    {
+        $chat = $this->makeChat();
+
+        $factory = $this->createMock(ChatFactory::class);
+        $factory->expects($this->once())
+            ->method('forGroups')
+            ->with(['custom-group', 'another-group'])
+            ->willReturn($chat);
+
+        $request = (new ServerRequest('POST', '/hook'))
+            ->withAttribute('chat_groups', ['custom-group', 'another-group']);
+        $context = RequestContext::fromServerRequest($request);
+
+        $message = new Message(
+            id: 'attr_groups',
+            threadId: 'test:ch:th',
+            author: new Author(id: 'U1', name: 'Test'),
+            text: 'hello',
+        );
+
+        $job = new ProcessMessageJob('test-adapter', 'test:ch:th', $message, requestContext: $context);
+        $job->handle($factory);
+    }
+
+    public function test_job_falls_back_to_adapter_name_when_no_request_attribute(): void
+    {
+        $chat = $this->makeChat();
+
+        $factory = $this->createMock(ChatFactory::class);
+        $factory->expects($this->once())
+            ->method('forGroups')
+            ->with(['test-fallback'])
+            ->willReturn($chat);
+
+        $message = new Message(
+            id: 'fallback_attr',
+            threadId: 'test:ch:th',
+            author: new Author(id: 'U1', name: 'Test'),
+            text: 'hello',
+        );
+
+        $job = new ProcessMessageJob('test-fallback', 'test:ch:th', $message);
+        $job->handle($factory);
     }
 }

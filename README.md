@@ -165,6 +165,53 @@ Or scoped to a specific adapter group:
 
 When a webhook arrives for `slack`, both `global` and `slack` group handlers are registered. `telegram` group handlers are skipped.
 
+### Multiple Groups per Channel
+
+Override `resolveGroups` on the `WebhookController` to route channels to different handler groups — even combining multiple groups:
+
+```php
+use Illuminate\Http\Request;
+use Psr\Http\Message\ServerRequestInterface;
+
+class ChannelAwareController extends WebhookController
+{
+    protected function resolveGroups(string $adapter, Request $request, ServerRequestInterface $psrRequest): array
+    {
+        $channel = $request->input('channel_id');
+
+        return match ($channel) {
+            'C001' => ['slack', 'internal-support'],
+            'C002' => ['slack', 'customer-support'],
+            default => [$adapter],
+        };
+    }
+}
+```
+
+Then `ChatFactory::forGroups(['slack', 'internal-support'])` merges global handlers + handlers from both groups. Groups are serialized as the `chat_groups` PSR-7 attribute — they survive into async queue jobs automatically.
+
+### Handlers that Inspect the Request
+
+Implement `ChatHandlerWithRequest` to access the PSR-7 request during registration:
+
+```php
+use BootDesk\ChatSDK\Laravel\Contracts\ChatHandlerWithRequest;
+
+class TenantAwareHandler implements ChatHandlerWithRequest
+{
+    public function register(Chat $chat, ?ServerRequestInterface $request = null): void
+    {
+        $tenant = $request?->getHeaderLine('X-Tenant') ?? 'default';
+
+        $chat->onNewMessage('/bill/', function (MessageContext $ctx) use ($tenant) {
+            // tenant-specific billing flow
+        });
+    }
+}
+```
+
+The factory auto-detects which interface the handler implements — existing `ChatHandler` implementations continue working unchanged.
+
 ## Middleware
 
 Middleware intercept messages at different stages. Register in your handler class:
@@ -364,6 +411,12 @@ Or for adapter-specific handlers:
 ```php
 $chat = $this->chatFactory->forGroup('slack'); // global + slack handlers
 $chat->handleWebhook('slack', $psrRequest);
+```
+
+For multiple groups:
+
+```php
+$chat = $this->chatFactory->forGroups(['slack', 'internal-support']); // global + both groups
 ```
 
 ## Artisan Commands

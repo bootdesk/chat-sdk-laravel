@@ -4,9 +4,11 @@ Laravel integration for the PHP Chat SDK. Namespace: `BootDesk\ChatSDK\Laravel`
 
 ## entrypoints
 - `ChatServiceProvider` — registers `HandlerRegistry`, `ChatFactory` singletons; binds `ConcurrencyHandler::class` → `QueueConcurrencyHandler`; binds `TranscriptsApi::class` → `DefaultTranscriptsApi`
-- `ChatFactory` — composes `Chat` instances scoped to a handler group (`forGroup()`) or global-only (`default()`)
-- `HandlerRegistry` — stores handler class names by group (global + per-adapter)
-- `Http/Controllers/WebhookController` — single `handle` method, injects `ChatFactory`, calls `forGroup($adapter)`
+- `ChatFactory` — composes `Chat` instances scoped to handler group(s) via `forGroup()`, `forGroups()`, or global-only via `default()`. Each accepts optional `?ServerRequestInterface $request` — forwarded to handlers implementing `ChatHandlerWithRequest`.
+- `HandlerRegistry` — stores handler class names by group (global + per-adapter). `forGroup(null)` returns globals; `forGroup('x')` returns globals + group x; `handlersForGroup('x')` returns group x only.
+- `Contracts/ChatHandler` — base contract. `register(Chat): void`
+- `Contracts/ChatHandlerWithRequest` — extends `ChatHandler`. `register(Chat, ?ServerRequestInterface): void`. Factory auto-detects and passes request.
+- `Http/Controllers/WebhookController` — `handle()` split into 6 overridable methods: `createPsrRequest`, `resolveGroups`, `withGroupsAttribute`, `createChat`, `handleWebhook`, `createResponse`. Default `resolveGroups` returns `[$adapter]`. Override to route channels to different groups.
 - `State/CacheStateAdapter` — StateAdapter impl backed by Laravel cache (file, redis, etc.)
 - `Concurrency/QueueConcurrencyHandler` — Laravel-specific `ConcurrencyHandler` that dispatches jobs for async processing. `drop` strategy acquires a lock during the webhook: if acquired, dispatches `ProcessMessageJob` (lock released when job finishes); if not acquired, drops silently. Works uniformly across all adapter types (sync, async, unmarked).
 
@@ -20,7 +22,7 @@ Routes are NOT auto-registered — copy into app's routes file.
 - `adapters` — map of name → config (bot_token, signing_secret, etc.)
 - `state.prefix` — cache key prefix (default: `chat:`)
 - `handlers` — global handler classes (always registered)
-- `handler_groups` — adapter-scoped handler groups (e.g. `slack => [Handler::class]`)
+- `handler_groups` — adapter-scoped handler groups (e.g. `slack => [Handler::class]`). Groups can be any name — not limited to adapter names. Resolved at runtime via `WebhookController::resolveGroups()`.
 - `concurrency` — drop/queue/debounce/concurrent (applied via `QueueConcurrencyHandler`)
 - `lock_scope` — thread/channel
 - `transcripts` — per-user message persistence config (requires `IdentityResolver::class` bound to container)
@@ -29,6 +31,25 @@ Routes are NOT auto-registered — copy into app's routes file.
 - Reads `config('chat.adapters')` → looks up class via `AdapterRegistry::get($name)` → instantiates with camelCased config keys
 - Adaptér auto-discovery works via each adapter's `register.php` autoloaded file
 - Injects `FileUploadConverter` from container if bound (for adapters without native file uploads)
+
+## chat handler with request
+`ChatHandlerWithRequest` (extends `ChatHandler`) receives the PSR-7 request in `register(Chat, ?ServerRequestInterface)`. Factory auto-detects which interface the handler implements — `ChatHandler` handlers are called without the request.
+
+```php
+use BootDesk\ChatSDK\Laravel\Contracts\ChatHandlerWithRequest;
+
+class TenantHandler implements ChatHandlerWithRequest
+{
+    public function register(Chat $chat, ?ServerRequestInterface $request = null): void
+    {
+        $tenant = $request?->getHeaderLine('X-Tenant') ?? 'default';
+
+        $chat->onNewMessage('/help/', function (MessageContext $ctx) use ($tenant) {
+            // tenant-specific routing
+        });
+    }
+}
+```
 
 ## file upload converter
 Binary file uploads on platforms without native support (WhatsApp, Messenger, GitHub, Linear, Telnyx, Web) require a `FileUploadConverter`. Register an implementation in any service provider:
@@ -86,9 +107,9 @@ $chat
 - `chat:make-adapter` — stub generator for new adapters
 
 ## jobs
-- `Jobs/ProcessMessageJob` — queueable message processing (dispatched by `QueueConcurrencyHandler` for `queue`/`concurrent` strategies, and by `drop` with lock acquired). `handle(ChatFactory)` resolves a Chat scoped to `$this->adapterName`. Releases the `process:` lock after handling.
-- `Jobs/ProcessDebouncedMessageJob` — unique delayed job for `debounce` strategy; fetches latest cached message when run. `handle(ChatFactory)` resolves a Chat scoped to `$this->adapterName`. Does NOT restore `:last` cache key on re-dispatch (prevents infinite loops). `:latest`/`:skipped` restoration guarded against concurrent webhook races.
-- `Jobs/RequestContext` — serializable value object capturing PSR-7 request data (method, uri, headers, body, query/parsed/server params, cookies, version, **requestAttributes**). Created by `QueueConcurrencyHandler::process()` from the original webhook request, passed to both job types. `toPsrRequest()` reconstructs a `ServerRequestInterface` in `handle()` — enables `AdapterResolver` to receive the original request even in queued context. The `requestAttributes` field captures PSR-7 `getAttributes()` — developers extending `WebhookController` can add tenant/context attributes to the request that survive serialization into jobs.
+- `Jobs/ProcessMessageJob` — queueable message processing (dispatched by `QueueConcurrencyHandler` for `queue`/`concurrent` strategies, and by `drop` with lock acquired). `handle(ChatFactory)` resolves a Chat scoped to the groups in the `chat_groups` request attribute (falls back to `[$this->adapterName]`). Releases the `process:` lock after handling.
+- `Jobs/ProcessDebouncedMessageJob` — unique delayed job for `debounce` strategy; fetches latest cached message when run. `handle(ChatFactory)` resolves a Chat scoped to the groups in the `chat_groups` request attribute (falls back to `[$this->adapterName]`). Does NOT restore `:last` cache key on re-dispatch. `:latest`/`:skipped` restoration guarded against concurrent webhook races.
+- `Jobs/RequestContext` — serializable value object capturing PSR-7 request data (method, uri, headers, body, query/parsed/server params, cookies, version, **requestAttributes**). Created by `QueueConcurrencyHandler::process()` from the original webhook request, passed to both job types. `toPsrRequest()` reconstructs a `ServerRequestInterface` in `handle()` — enables `AdapterResolver` to receive the original request even in queued context. The `requestAttributes` field captures PSR-7 `getAttributes()` — developers extending `WebhookController` can add tenant/context attributes to the request that survive serialization into jobs. The `chat_groups` attribute is set automatically by `WebhookController::withGroupsAttribute()`.
 
 ## adapter resolution (job context)
 Both `ProcessMessageJob` and `ProcessDebouncedMessageJob` pass the reconstructed PSR-7 request to `Chat::resolveAdapter()`. When `AdapterResolver` is registered, `resolve(name, request)` now receives the original request (method, URI, headers, body, query params, parsed body, cookies, server params) in sync AND job contexts. Previously `$request` was always `null` in jobs.

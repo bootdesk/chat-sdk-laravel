@@ -31,8 +31,9 @@ class ProcessDebouncedMessageJob implements ShouldBeUniqueUntilProcessing, Shoul
 
     public function handle(ChatFactory $chatFactory): void
     {
-        $chat = $chatFactory->forGroup($this->adapterName);
         $request = $this->requestContext?->toPsrRequest();
+        $groups = $request?->getAttribute('chat_groups') ?? [$this->adapterName];
+        $chat = $chatFactory->forGroups($groups, $request);
         $adapter = $chat->resolveAdapter($this->adapterName, $request);
 
         if (! $adapter instanceof Adapter) {

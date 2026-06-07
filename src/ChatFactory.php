@@ -15,9 +15,11 @@ use BootDesk\ChatSDK\Core\Contracts\TranscriptsApi;
 use BootDesk\ChatSDK\Core\Support\AdapterRegistry;
 use BootDesk\ChatSDK\Core\Support\NullFileUploadConverter;
 use BootDesk\ChatSDK\Laravel\Contracts\ChatHandler as ChatHandlerContract;
+use BootDesk\ChatSDK\Laravel\Contracts\ChatHandlerWithRequest;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Str;
 use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ServerRequestInterface;
 
 class ChatFactory
 {
@@ -28,23 +30,35 @@ class ChatFactory
         private readonly HandlerRegistry $handlerRegistry,
     ) {}
 
-    public function forGroup(string $group): Chat
+    public function forGroup(string $group, ?ServerRequestInterface $request = null): Chat
+    {
+        return $this->forGroups([$group], $request);
+    }
+
+    /** @param  string[]  $groups */
+    public function forGroups(array $groups, ?ServerRequestInterface $request = null): Chat
     {
         $chat = $this->baseChat();
 
-        foreach ($this->handlerRegistry->forGroup($group) as $handlerClass) {
-            $this->registerHandler($chat, $handlerClass);
+        foreach ($this->handlerRegistry->forGroup(null) as $handlerClass) {
+            $this->registerHandler($chat, $handlerClass, $request);
+        }
+
+        foreach ($groups as $group) {
+            foreach ($this->handlerRegistry->handlersForGroup($group) as $handlerClass) {
+                $this->registerHandler($chat, $handlerClass, $request);
+            }
         }
 
         return $chat;
     }
 
-    public function default(): Chat
+    public function default(?ServerRequestInterface $request = null): Chat
     {
         $chat = $this->baseChat();
 
         foreach ($this->handlerRegistry->forGroup(null) as $handlerClass) {
-            $this->registerHandler($chat, $handlerClass);
+            $this->registerHandler($chat, $handlerClass, $request);
         }
 
         return $chat;
@@ -117,7 +131,7 @@ class ChatFactory
         return $adapters;
     }
 
-    private function registerHandler(Chat $chat, string $handlerClass): void
+    private function registerHandler(Chat $chat, string $handlerClass, ?ServerRequestInterface $request = null): void
     {
         if (! class_exists($handlerClass)) {
             return;
@@ -125,7 +139,9 @@ class ChatFactory
 
         $handler = $this->app->make($handlerClass);
 
-        if ($handler instanceof ChatHandlerContract) {
+        if ($handler instanceof ChatHandlerWithRequest) {
+            $handler->register($chat, $request);
+        } elseif ($handler instanceof ChatHandlerContract) {
             $handler->register($chat);
         }
     }

@@ -12,9 +12,11 @@ use BootDesk\ChatSDK\Laravel\ChatFactory;
 use BootDesk\ChatSDK\Laravel\ChatServiceProvider;
 use BootDesk\ChatSDK\Laravel\Concurrency\QueueConcurrencyHandler;
 use BootDesk\ChatSDK\Laravel\Jobs\ProcessDebouncedMessageJob;
+use BootDesk\ChatSDK\Laravel\Jobs\RequestContext;
 use BootDesk\ChatSDK\Laravel\Tests\Helpers\TestSyncAdapter;
 use Illuminate\Support\Facades\Bus;
 use Nyholm\Psr7\Factory\Psr17Factory;
+use Nyholm\Psr7\ServerRequest;
 use Orchestra\Testbench\TestCase;
 
 class ProcessDebouncedMessageJobTest extends TestCase
@@ -47,7 +49,7 @@ class ProcessDebouncedMessageJobTest extends TestCase
         );
 
         $factory = $this->createMock(ChatFactory::class);
-        $factory->method('forGroup')->willReturn($chat);
+        $factory->method('forGroups')->willReturn($chat);
 
         $job = new ProcessDebouncedMessageJob('nonexistent', 'test:ch:th', 'chat:debounce:test:ch:th', 1000);
         $job->handle($factory);
@@ -64,7 +66,7 @@ class ProcessDebouncedMessageJobTest extends TestCase
         $chat->registerAdapter(self::ADAPTER_NAME, new TestSyncAdapter);
 
         $factory = $this->createMock(ChatFactory::class);
-        $factory->method('forGroup')->willReturn($chat);
+        $factory->method('forGroups')->willReturn($chat);
 
         $called = false;
         $chat->onNewMessage('/.*/', function () use (&$called) {
@@ -102,7 +104,7 @@ class ProcessDebouncedMessageJobTest extends TestCase
         });
 
         $factory = $this->createMock(ChatFactory::class);
-        $factory->method('forGroup')->willReturn($chat);
+        $factory->method('forGroups')->willReturn($chat);
 
         $job = new ProcessDebouncedMessageJob(self::ADAPTER_NAME, 'test:ch:th', $debounceKey, 100);
         $job->handle($factory);
@@ -139,7 +141,7 @@ class ProcessDebouncedMessageJobTest extends TestCase
         });
 
         $factory = $this->createMock(ChatFactory::class);
-        $factory->method('forGroup')->willReturn($chat);
+        $factory->method('forGroups')->willReturn($chat);
 
         $job = new ProcessDebouncedMessageJob(self::ADAPTER_NAME, 'test:ch:th', $debounceKey, 100_000);
         $job->handle($factory);
@@ -177,7 +179,7 @@ class ProcessDebouncedMessageJobTest extends TestCase
         });
 
         $factory = $this->createMock(ChatFactory::class);
-        $factory->method('forGroup')->willReturn($chat);
+        $factory->method('forGroups')->willReturn($chat);
 
         // First run: re-dispatches (window still open)
         $job1 = new ProcessDebouncedMessageJob(self::ADAPTER_NAME, 'test:ch:th', $debounceKey, 100_000);
@@ -193,5 +195,56 @@ class ProcessDebouncedMessageJobTest extends TestCase
         $this->assertTrue($called);
         $this->assertNull($state->get("{$debounceKey}:latest"));
         $this->assertNull($state->get("{$debounceKey}:last"));
+    }
+
+    public function test_debounced_job_uses_groups_from_request_attribute(): void
+    {
+        $chat = new Chat(
+            state: $this->app->make(StateAdapter::class),
+            responseFactory: $this->app->make(Psr17Factory::class),
+        );
+        $chat->registerAdapter(self::ADAPTER_NAME, new TestSyncAdapter);
+        $state = $chat->state;
+        $debounceKey = 'chat:debounce:group:test';
+
+        $message = new Message(
+            id: 'deb_group',
+            threadId: 'test:ch:th',
+            author: new Author(id: 'U1', name: 'Test'),
+            text: 'hello',
+        );
+        $state->set("{$debounceKey}:latest", $message, 6000);
+        $state->set("{$debounceKey}:last", microtime(true) - 200, 6000);
+
+        $factory = $this->createMock(ChatFactory::class);
+        $factory->expects($this->once())
+            ->method('forGroups')
+            ->with(['support-group'])
+            ->willReturn($chat);
+
+        $request = (new ServerRequest('POST', '/hook'))
+            ->withAttribute('chat_groups', ['support-group']);
+        $context = new RequestContext(
+            method: 'POST',
+            uri: '/hook',
+            headers: [],
+            body: '',
+            queryParams: [],
+            parsedBody: null,
+            serverParams: [],
+            cookies: [],
+            version: '1.1',
+            requestAttributes: $request->getAttributes(),
+        );
+
+        $called = false;
+        $chat->onNewMessage('/.*/', function () use (&$called) {
+            $called = true;
+        });
+
+        $job = new ProcessDebouncedMessageJob(self::ADAPTER_NAME, 'test:ch:th', $debounceKey, 100, requestContext: $context);
+        $job->handle($factory);
+
+        $this->assertTrue($called);
     }
 }
