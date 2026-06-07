@@ -9,7 +9,9 @@ use BootDesk\ChatSDK\Core\Contracts\AdapterResolver;
 use BootDesk\ChatSDK\Core\Contracts\BroadcastAdapter;
 use BootDesk\ChatSDK\Core\Contracts\ConcurrencyHandler;
 use BootDesk\ChatSDK\Core\Contracts\FileUploadConverter;
+use BootDesk\ChatSDK\Core\Contracts\IdentityResolver;
 use BootDesk\ChatSDK\Core\Contracts\StateAdapter;
+use BootDesk\ChatSDK\Core\Contracts\TranscriptsApi;
 use BootDesk\ChatSDK\Core\Support\AdapterRegistry;
 use BootDesk\ChatSDK\Core\Support\NullFileUploadConverter;
 use BootDesk\ChatSDK\Laravel\Contracts\ChatHandler as ChatHandlerContract;
@@ -51,13 +53,22 @@ class ChatFactory
     private function baseChat(): Chat
     {
         $identity = null;
-        if ($this->app->bound('chat.identity')) {
+        if ($this->app->bound(IdentityResolver::class)) {
+            $identity = $this->app->make(IdentityResolver::class);
+        } elseif ($this->app->bound('chat.identity')) {
             $identity = $this->app->make('chat.identity');
         }
 
         $broadcaster = null;
         if (config('chat-broadcasting.enabled', false) && $this->app->bound(BroadcastAdapter::class)) {
             $broadcaster = $this->app->make(BroadcastAdapter::class);
+        }
+
+        $transcripts = null;
+        if ($this->app->bound(TranscriptsApi::class)) {
+            $transcripts = $this->app->make(TranscriptsApi::class);
+        } else {
+            $transcripts = config('chat.transcripts');
         }
 
         return new Chat(
@@ -70,7 +81,7 @@ class ChatFactory
                 $this->app->make(AdapterResolver::class) : null,
             responseFactory: $this->app->make(ResponseFactoryInterface::class),
             identity: $identity,
-            transcripts: config('chat.transcripts'),
+            transcripts: $transcripts,
             broadcaster: $broadcaster,
             concurrencyHandler: $this->app->make(ConcurrencyHandler::class),
         );

@@ -15,6 +15,12 @@ return [
     | package is installed (class_exists) will be loaded. For multi-tenant
     | setups, omit the platform here and use an AdapterResolver instead.
     |
+    | Transcripts require an IdentityResolver bound to the container
+    | (IdentityResolver::class). Example:
+    |   $this->app->bind(IdentityResolver::class, fn () => new class implements IdentityResolver {
+    |       public function resolve(Author $author): ?string { return $author->id; }
+    |   });
+    |
     */
     'adapters' => [
         // 'slack' => [
@@ -137,11 +143,14 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Transcripts
+    | Transcripts (per-user message history)
     |--------------------------------------------------------------------------
     |
     | Cross-platform per-user message persistence. Requires an
-    | identity resolver bound to 'chat.identity' in a service provider.
+    | IdentityResolver bound to the container (IdentityResolver::class).
+    |
+    | Example:
+    |   'transcripts' => ['max_messages' => 100, 'ttl_ms' => 2592000000],
     |
     */
     'transcripts' => null,

@@ -3,7 +3,7 @@
 Laravel integration for the PHP Chat SDK. Namespace: `BootDesk\ChatSDK\Laravel`
 
 ## entrypoints
-- `ChatServiceProvider` — registers `HandlerRegistry`, `ChatFactory` singletons; binds `ConcurrencyHandler::class` → `QueueConcurrencyHandler`
+- `ChatServiceProvider` — registers `HandlerRegistry`, `ChatFactory` singletons; binds `ConcurrencyHandler::class` → `QueueConcurrencyHandler`; binds `TranscriptsApi::class` → `DefaultTranscriptsApi`
 - `ChatFactory` — composes `Chat` instances scoped to a handler group (`forGroup()`) or global-only (`default()`)
 - `HandlerRegistry` — stores handler class names by group (global + per-adapter)
 - `Http/Controllers/WebhookController` — single `handle` method, injects `ChatFactory`, calls `forGroup($adapter)`
@@ -23,7 +23,7 @@ Routes are NOT auto-registered — copy into app's routes file.
 - `handler_groups` — adapter-scoped handler groups (e.g. `slack => [Handler::class]`)
 - `concurrency` — drop/queue/debounce/concurrent (applied via `QueueConcurrencyHandler`)
 - `lock_scope` — thread/channel
-- `transcripts` — per-user message persistence config (requires `chat.identity` binding)
+- `transcripts` — per-user message persistence config (requires `IdentityResolver::class` bound to container)
 
 ## adapter resolution
 - Reads `config('chat.adapters')` → looks up class via `AdapterRegistry::get($name)` → instantiates with camelCased config keys
@@ -106,5 +106,11 @@ Both `ProcessMessageJob` and `ProcessDebouncedMessageJob` pass the reconstructed
 - Guzzle bound as default `ClientInterface` via service provider
 - Psr17Factory bound for all PSR-17 factories
 - Adapter classes receive constructor params camelCased from config (e.g. `bot_token` → `$botToken`)
-- `chat.identity` binding: closure `fn(Author $author): ?string` for transcript user resolution
+- `IdentityResolver::class` binding: `IdentityResolver` implementation for transcript user resolution (fallback: `chat.identity` string key)
 - `ConcurrencyHandler::class` bound to `QueueConcurrencyHandler` — override by rebinding in your service provider if you need custom concurrency behavior
+- `TranscriptsApi::class` bound to `DefaultTranscriptsApi` — override by rebinding in your service provider to use a custom implementation:
+  ```php
+  $this->app->bind(TranscriptsApi::class, fn () => new MyTranscriptsApi(
+      $this->app->make(StateAdapter::class),
+  ));
+  ```

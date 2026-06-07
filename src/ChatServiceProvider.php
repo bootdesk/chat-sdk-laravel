@@ -4,6 +4,8 @@ namespace BootDesk\ChatSDK\Laravel;
 
 use BootDesk\ChatSDK\Core\Contracts\ConcurrencyHandler;
 use BootDesk\ChatSDK\Core\Contracts\StateAdapter;
+use BootDesk\ChatSDK\Core\Contracts\TranscriptsApi;
+use BootDesk\ChatSDK\Core\Transcript\DefaultTranscriptsApi;
 use BootDesk\ChatSDK\Laravel\Commands\ChatInstallCommand;
 use BootDesk\ChatSDK\Laravel\Commands\ChatListCommand;
 use BootDesk\ChatSDK\Laravel\Commands\ChatMakeAdapterCommand;
@@ -39,6 +41,12 @@ class ChatServiceProvider extends ServiceProvider
             return new QueueConcurrencyHandler(
                 state: $app->make(StateAdapter::class),
                 config: config('chat', []),
+            );
+        });
+
+        $this->app->singleton(TranscriptsApi::class, function (Application $app): DefaultTranscriptsApi {
+            return new DefaultTranscriptsApi(
+                state: $app->make(StateAdapter::class),
             );
         });
 

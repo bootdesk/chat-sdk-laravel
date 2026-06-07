@@ -101,7 +101,7 @@ return [
     'lock_scope' => env('CHAT_LOCK_SCOPE', 'thread'),
 
     // Cross-platform per-user message persistence. Requires an
-    // identity resolver bound to 'chat.identity' in a service provider.
+    // IdentityResolver bound to the container (IdentityResolver::class).
     'transcripts' => null,
 
 ];
@@ -209,6 +209,61 @@ class ChatHandlers
 ```
 
 **Operations:** `post`, `edit`, `postEphemeral`
+
+## Transcripts
+
+Per-user message persistence stored via the Laravel cache. Incoming and outgoing messages are auto-recorded when configured.
+
+### Setup
+
+Bind an `IdentityResolver` and set `transcripts` config:
+
+```php
+// AppServiceProvider::register()
+use BootDesk\ChatSDK\Core\Contracts\IdentityResolver;
+use BootDesk\ChatSDK\Core\Author;
+
+$this->app->bind(IdentityResolver::class, fn () => new class implements IdentityResolver {
+    public function resolve(Author $author): ?string {
+        return $author->id;
+    }
+});
+```
+
+```php
+// config/chat.php
+'transcripts' => ['max_messages' => 100, 'ttl_ms' => 2592000000],
+```
+
+### Custom implementation
+
+Override the `TranscriptsApi` binding in any service provider:
+
+```php
+$this->app->bind(TranscriptsApi::class, function ($app) {
+    return new MyRedisTranscriptsApi(
+        state: $app->make(StateAdapter::class),
+        config: ['max_messages' => 200],
+    );
+});
+```
+
+### Usage
+
+```php
+$transcripts = $chat->getTranscripts();
+
+// List history for a user
+$entries = $transcripts->list('user:U123');
+
+// Each entry has: id, text, authorId, threadId, timestamp, direction
+
+// Count
+$count = $transcripts->count('user:U123');
+
+// Delete
+$transcripts->delete('user:U123');
+```
 
 ## Multi-Tenant Adapter Resolution
 

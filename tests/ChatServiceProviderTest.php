@@ -4,6 +4,7 @@ namespace BootDesk\ChatSDK\Laravel\Tests;
 
 use BootDesk\ChatSDK\Core\Author;
 use BootDesk\ChatSDK\Core\Chat;
+use BootDesk\ChatSDK\Core\Contracts\IdentityResolver;
 use BootDesk\ChatSDK\Core\Contracts\StateAdapter;
 use BootDesk\ChatSDK\Laravel\ChatFactory;
 use BootDesk\ChatSDK\Laravel\ChatServiceProvider;
@@ -59,7 +60,13 @@ class ChatServiceProviderTest extends TestCase
 
     public function test_identity_binding(): void
     {
-        $this->app->bind('chat.identity', fn () => fn (Author $a) => $a->id);
+        $this->app->bind(IdentityResolver::class, fn () => new class implements IdentityResolver
+        {
+            public function resolve(Author $author): ?string
+            {
+                return $author->id;
+            }
+        });
         $chat = $this->app->make(ChatFactory::class)->forGroup('slack');
         $this->assertNotNull($chat->resolveIdentity(new Author(id: 'U1')));
     }
