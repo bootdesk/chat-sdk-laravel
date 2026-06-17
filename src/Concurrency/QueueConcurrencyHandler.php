@@ -7,6 +7,7 @@ namespace BootDesk\ChatSDK\Laravel\Concurrency;
 use BootDesk\ChatSDK\Core\Concurrency\Strategy;
 use BootDesk\ChatSDK\Core\Contracts\Adapter;
 use BootDesk\ChatSDK\Core\Contracts\ConcurrencyHandler;
+use BootDesk\ChatSDK\Core\Contracts\HasDynamicSyncPreference;
 use BootDesk\ChatSDK\Core\Contracts\RequiresAsyncResponse;
 use BootDesk\ChatSDK\Core\Contracts\RequiresSyncResponse;
 use BootDesk\ChatSDK\Core\Contracts\StateAdapter;
@@ -45,6 +46,22 @@ class QueueConcurrencyHandler implements ConcurrencyHandler
         $lockKey = $lockScope === 'channel'
             ? $adapter->getName().':'.$adapter->channelIdFromThreadId($threadId)
             : $threadId;
+
+        if ($adapter instanceof HasDynamicSyncPreference) {
+            if ($adapter->requiresSyncResponse()) {
+                $this->processSync($lockKey, $adapter, $threadId, $message, $processCallback);
+
+                return;
+            }
+
+            if ($strategy === Strategy::Drop) {
+                $this->processDropAsync($lockKey, $adapter, $threadId, $message);
+            } else {
+                $this->dispatchAsync($strategy, $adapter, $threadId, $message, $debounceMs);
+            }
+
+            return;
+        }
 
         if ($adapter instanceof RequiresSyncResponse) {
             $this->processSync($lockKey, $adapter, $threadId, $message, $processCallback);
