@@ -101,6 +101,14 @@ $chat
     ));
 ```
 
+## broadcasting
+- `LaravelBroadcastAdapter` (in `Broadcasting/`) implements `BroadcastAdapter` for Pusher/Redis/log/null
+- Config: `config/chat-broadcasting.php` — `enabled`, `default`, `channel_prefix`, `thread_channel_type`, `user_channel_type`, `use_hash_channel`
+- `use_hash_channel` (default `false`): when `true`, channel names use SHA-256 hash of threadId instead of raw value — safe for broadcasters restricting allowed chars (Pusher: `[-_\.a-zA-Z0-9]`)
+- Custom adapter: `BroadcastAdapter::class` uses `bindIf()` — bind in your service provider before package registers to override
+- `buildChannelName(string $threadId): string` is `protected` — override for custom naming
+- `hashChannelName(string $threadId): string` is `protected` — override to change hash algorithm
+
 ## artisan commands
 - `chat:install` — publish config
 - `chat:list` — list registered adapters

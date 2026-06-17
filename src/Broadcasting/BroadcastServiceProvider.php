@@ -13,12 +13,13 @@ class BroadcastServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../../config/chat-broadcasting.php', 'chat-broadcasting');
 
-        $this->app->bind(BroadcastAdapter::class, function (): LaravelBroadcastAdapter {
+        $this->app->bindIf(BroadcastAdapter::class, function (): LaravelBroadcastAdapter {
             return new LaravelBroadcastAdapter(
                 broadcasterType: config('chat-broadcasting.default', 'pusher'),
                 channelPrefix: config('chat-broadcasting.channel_prefix', 'chat'),
                 threadChannelType: config('chat-broadcasting.thread_channel_type', 'public'),
                 userChannelType: config('chat-broadcasting.user_channel_type', 'private'),
+                useHashChannel: config('chat-broadcasting.use_hash_channel', false),
             );
         });
     }

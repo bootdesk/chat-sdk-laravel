@@ -18,6 +18,7 @@ class LaravelBroadcastAdapter implements BroadcastAdapter
         protected string $channelPrefix = 'chat',
         protected string $threadChannelType = 'public',
         protected string $userChannelType = 'private',
+        protected bool $useHashChannel = false,
     ) {}
 
     public function connect(): void {}
@@ -66,7 +67,14 @@ class LaravelBroadcastAdapter implements BroadcastAdapter
 
     protected function buildChannelName(string $threadId): string
     {
-        return "{$this->channelPrefix}.{$threadId}";
+        $name = $this->useHashChannel ? $this->hashChannelName($threadId) : $threadId;
+
+        return "{$this->channelPrefix}.{$name}";
+    }
+
+    protected function hashChannelName(string $threadId): string
+    {
+        return hash('sha256', $threadId);
     }
 
     protected function buildChannel(string $threadId): Channel

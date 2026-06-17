@@ -67,4 +67,18 @@ return [
     */
 
     'user_channel_type' => env('CHAT_BROADCASTING_USER_CHANNEL_TYPE', 'private'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Use Hashed Channel Names
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, channel names will use a SHA-256 hash of the threadId
+    | instead of the raw threadId. This is useful when threadIds contain
+    | characters incompatible with the broadcaster (e.g., Pusher only allows
+    | [-_\.a-zA-Z0-9]).
+    |
+    */
+
+    'use_hash_channel' => env('CHAT_BROADCASTING_USE_HASH_CHANNEL', false),
 ];
