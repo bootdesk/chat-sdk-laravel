@@ -2,7 +2,6 @@
 
 namespace BootDesk\ChatSDK\Laravel\Notifications;
 
-use BootDesk\ChatSDK\Core\Contracts\Adapter;
 use BootDesk\ChatSDK\Core\PostableMessage;
 use BootDesk\ChatSDK\Core\SentMessage;
 use BootDesk\ChatSDK\Laravel\ChatFactory;
@@ -43,18 +42,7 @@ class ChatChannel
         }
 
         if ($route->userId !== null) {
-            $adapter = $chat->resolveAdapter($route->adapter);
-            if (! $adapter instanceof Adapter) {
-                return null;
-            }
-
-            $channelId = $adapter->openDM($route->userId);
-
-            if ($channelId === null) {
-                return null;
-            }
-
-            return $adapter->postMessage("{$route->adapter}:{$channelId}", $message);
+            return $chat->openDM($route->userId)->post($message);
         }
 
         return null;

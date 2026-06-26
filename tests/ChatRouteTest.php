@@ -18,20 +18,18 @@ class ChatRouteTest extends TestCase
 
     public function test_channel_route(): void
     {
-        $route = ChatRoute::channel('slack', 'C123');
+        $route = ChatRoute::channel('slack:C123');
 
-        $this->assertSame('slack', $route->adapter);
-        $this->assertSame('C123', $route->channelId);
+        $this->assertSame('slack:C123', $route->channelId);
         $this->assertNull($route->threadId);
         $this->assertNull($route->userId);
     }
 
     public function test_dm_route(): void
     {
-        $route = ChatRoute::dm('slack', 'U123');
+        $route = ChatRoute::dm('slack:U123');
 
-        $this->assertSame('slack', $route->adapter);
-        $this->assertSame('U123', $route->userId);
+        $this->assertSame('slack:U123', $route->userId);
         $this->assertNull($route->threadId);
         $this->assertNull($route->channelId);
     }

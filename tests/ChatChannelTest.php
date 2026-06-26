@@ -111,7 +111,7 @@ class ChatChannelTest extends TestCase
 
                 public function openDM(string $u): ?string
                 {
-                    return 'DM:U1';
+                    return 'mock:DM:'.$u;
                 }
 
                 public function getFormatConverter(): ?FormatConverter
@@ -175,6 +175,44 @@ class ChatChannelTest extends TestCase
 
         $result = $this->channel->send(
             $this->createNotifiable(ChatRoute::thread('mock:DM:U1')),
+            $notification,
+        );
+
+        $this->assertNotNull($result);
+        $this->assertSame('s1', $result->id);
+    }
+
+    public function test_send_channel_route(): void
+    {
+        $notification = new class extends Notification
+        {
+            public function toChat($notifiable): PostableMessage
+            {
+                return PostableMessage::text('hello');
+            }
+        };
+
+        $result = $this->channel->send(
+            $this->createNotifiable(ChatRoute::channel('mock:C123')),
+            $notification,
+        );
+
+        $this->assertNotNull($result);
+        $this->assertSame('s1', $result->id);
+    }
+
+    public function test_send_dm_route(): void
+    {
+        $notification = new class extends Notification
+        {
+            public function toChat($notifiable): PostableMessage
+            {
+                return PostableMessage::text('hello');
+            }
+        };
+
+        $result = $this->channel->send(
+            $this->createNotifiable(ChatRoute::dm('mock:U1')),
             $notification,
         );
 
