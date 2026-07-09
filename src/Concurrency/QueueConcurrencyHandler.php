@@ -18,15 +18,22 @@ use BootDesk\ChatSDK\Laravel\Jobs\ProcessMessageJob;
 use BootDesk\ChatSDK\Laravel\Jobs\RequestContext;
 use Illuminate\Support\Facades\Bus;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 class QueueConcurrencyHandler implements ConcurrencyHandler
 {
     private ?RequestContext $requestContext = null;
 
+    private readonly LoggerInterface $logger;
+
     public function __construct(
         private readonly StateAdapter $state,
         private readonly array $config = [],
-    ) {}
+        ?LoggerInterface $logger = null,
+    ) {
+        $this->logger = $logger ?? new NullLogger;
+    }
 
     public function process(
         Adapter $adapter,
@@ -81,6 +88,11 @@ class QueueConcurrencyHandler implements ConcurrencyHandler
 
         $lock = $this->state->acquireLock("process:{$lockKey}", 30_000);
         if ($lock instanceof Lock) {
+            $this->logger->debug('[QueueConcurrency] Lock acquired, processing inline', [
+                'lockKey' => $lockKey,
+                'threadId' => $threadId,
+            ]);
+
             try {
                 $processCallback($adapter, $threadId, $message, [], 1);
             } finally {
@@ -89,6 +101,12 @@ class QueueConcurrencyHandler implements ConcurrencyHandler
 
             return;
         }
+
+        $this->logger->debug('[QueueConcurrency] No lock, dispatching async', [
+            'lockKey' => $lockKey,
+            'strategy' => $strategy->value,
+            'threadId' => $threadId,
+        ]);
 
         $this->dispatchAsync($strategy, $adapter, $threadId, $message, $debounceMs);
     }
@@ -102,6 +120,11 @@ class QueueConcurrencyHandler implements ConcurrencyHandler
     ): void {
         $lock = $this->state->acquireLock("process:{$lockKey}", 30_000);
         if (! $lock instanceof Lock) {
+            $this->logger->warning('[QueueConcurrency] processSync: lock not acquired', [
+                'lockKey' => $lockKey,
+                'threadId' => $threadId,
+            ]);
+
             return;
         }
 
@@ -120,8 +143,18 @@ class QueueConcurrencyHandler implements ConcurrencyHandler
     ): void {
         $lock = $this->state->acquireLock("process:{$lockKey}", 30_000);
         if (! $lock instanceof Lock) {
+            $this->logger->debug('[QueueConcurrency] dropAsync: dropped (lock held)', [
+                'lockKey' => $lockKey,
+                'threadId' => $threadId,
+            ]);
+
             return;
         }
+
+        $this->logger->debug('[QueueConcurrency] dropAsync: dispatching job with lock', [
+            'lockKey' => $lockKey,
+            'threadId' => $threadId,
+        ]);
 
         Bus::dispatch(new ProcessMessageJob(
             adapterName: $adapter->getName(),
@@ -150,6 +183,12 @@ class QueueConcurrencyHandler implements ConcurrencyHandler
 
     private function dispatchJob(Adapter $adapter, string $threadId, Message $message): void
     {
+        $this->logger->debug('[QueueConcurrency] Dispatching job', [
+            'adapter' => $adapter->getName(),
+            'threadId' => $threadId,
+            'messageId' => $message->id,
+        ]);
+
         Bus::dispatch(new ProcessMessageJob(
             adapterName: $adapter->getName(),
             threadId: $threadId,
@@ -173,10 +212,19 @@ class QueueConcurrencyHandler implements ConcurrencyHandler
             $skipped = is_array($skipped) ? $skipped : [];
             $skipped[] = $previous;
             $this->state->set("{$debounceKey}:skipped", $skipped, $ttl);
+            $this->logger->debug('[QueueConcurrency] Debounce: previous message skipped', [
+                'threadId' => $threadId,
+                'skippedCount' => count($skipped),
+            ]);
         }
 
         $this->state->set("{$debounceKey}:latest", $message, $ttl);
         $this->state->set("{$debounceKey}:last", microtime(true), $ttl);
+
+        $this->logger->debug('[QueueConcurrency] Debounce job dispatched', [
+            'threadId' => $threadId,
+            'debounceMs' => $debounceMs,
+        ]);
 
         Bus::dispatch(tap(
             new ProcessDebouncedMessageJob(

@@ -20,6 +20,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Str;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
 
 class ChatFactory
 {
@@ -85,11 +86,21 @@ class ChatFactory
             $transcripts = config('chat.transcripts');
         }
 
+        $logger = null;
+        if (config('chat.logging.enabled', false)) {
+            $channel = config('chat.logging.channel');
+            if ($channel !== null) {
+                $logger = $this->app->make('log')->channel($channel);
+            } elseif ($this->app->bound(LoggerInterface::class)) {
+                $logger = $this->app->make(LoggerInterface::class);
+            }
+        }
+
         return new Chat(
             state: $this->app->make(StateAdapter::class),
-            adapters: $this->getAdapters(),
+            adapters: $this->getAdapters($logger),
             config: [
-                'logger' => $this->app->bound('log') ? $this->app->make('log') : null,
+                'logger' => $logger,
             ],
             adapterResolver: $this->app->bound(AdapterResolver::class) ?
                 $this->app->make(AdapterResolver::class) : null,
@@ -98,10 +109,11 @@ class ChatFactory
             transcripts: $transcripts,
             broadcaster: $broadcaster,
             concurrencyHandler: $this->app->make(ConcurrencyHandler::class),
+            logger: $logger,
         );
     }
 
-    private function getAdapters(): array
+    private function getAdapters(?LoggerInterface $logger = null): array
     {
         if ($this->cachedAdapters !== null) {
             return $this->cachedAdapters;
@@ -122,6 +134,7 @@ class ChatFactory
                     $normalized[Str::camel($key)] = $value;
                 }
                 $normalized['fileUploadConverter'] = $fileUploadConverter;
+                $normalized['logger'] = $logger;
                 $adapters[$name] = $this->app->make($class, $normalized);
             }
         }

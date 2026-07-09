@@ -155,4 +155,19 @@ return [
     */
     'transcripts' => null,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Logging
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, the SDK logs adapter flow (webhooks, API calls, errors)
+    | to help debug production issues. Uses the default Laravel log channel
+    | unless a specific channel is configured.
+    |
+    */
+    'logging' => [
+        'enabled' => env('CHAT_LOGGING_ENABLED', false),
+        'channel' => env('CHAT_LOG_CHANNEL'),
+    ],
+
 ];

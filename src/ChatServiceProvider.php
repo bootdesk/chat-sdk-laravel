@@ -21,6 +21,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ServerRequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\UploadedFileFactoryInterface;
+use Psr\Log\LoggerInterface;
 
 class ChatServiceProvider extends ServiceProvider
 {
@@ -31,16 +32,22 @@ class ChatServiceProvider extends ServiceProvider
         $this->bindPsr17();
         $this->bindHttpClient();
 
-        $this->app->singleton(StateAdapter::class, function (): CacheStateAdapter {
+        $this->app->singleton(StateAdapter::class, function (Application $app): CacheStateAdapter {
+            $logger = $this->resolveLogger($app);
+
             return new CacheStateAdapter(
                 prefix: config('chat.state.prefix', 'chat:'),
+                logger: $logger,
             );
         });
 
         $this->app->singleton(ConcurrencyHandler::class, function (Application $app): QueueConcurrencyHandler {
+            $logger = $this->resolveLogger($app);
+
             return new QueueConcurrencyHandler(
                 state: $app->make(StateAdapter::class),
                 config: config('chat', []),
+                logger: $logger,
             );
         });
 
@@ -110,5 +117,19 @@ class ChatServiceProvider extends ServiceProvider
     private function bindHttpClient(): void
     {
         $this->app->bind(ClientInterface::class, GuzzleClient::class);
+    }
+
+    private function resolveLogger(Application $app): ?LoggerInterface
+    {
+        if (! config('chat.logging.enabled', false)) {
+            return null;
+        }
+
+        $channel = config('chat.logging.channel');
+        if ($channel !== null) {
+            return $app->make('log')->channel($channel);
+        }
+
+        return $app->bound(LoggerInterface::class) ? $app->make(LoggerInterface::class) : null;
     }
 }

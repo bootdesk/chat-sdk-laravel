@@ -7,18 +7,24 @@ use BootDesk\ChatSDK\Core\Lock;
 use BootDesk\ChatSDK\Core\QueueEntry;
 use Illuminate\Contracts\Cache\Lock as LaravelLock;
 use Illuminate\Support\Facades\Cache;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 class CacheStateAdapter implements StateAdapter
 {
     private string $prefix;
+
+    private readonly LoggerInterface $logger;
 
     /** @var array<string, LaravelLock> */
     private array $heldLocks = [];
 
     public function __construct(
         string $prefix = 'chat:',
+        ?LoggerInterface $logger = null,
     ) {
         $this->prefix = $prefix;
+        $this->logger = $logger ?? new NullLogger;
     }
 
     public function connect(): void
@@ -59,9 +65,12 @@ class CacheStateAdapter implements StateAdapter
 
         if ($laravelLock->get()) {
             $this->heldLocks[$lockKey] = $laravelLock;
+            $this->logger->debug('[CacheState] Lock acquired', ['lockKey' => $lockKey]);
 
             return new Lock($lockKey, bin2hex(random_bytes(16)), $ttlMs);
         }
+
+        $this->logger->debug('[CacheState] Lock not acquired', ['lockKey' => $lockKey]);
 
         return null;
     }
@@ -94,6 +103,7 @@ class CacheStateAdapter implements StateAdapter
         if (isset($this->heldLocks[$lock->key])) {
             $this->heldLocks[$lock->key]->release();
             unset($this->heldLocks[$lock->key]);
+            $this->logger->debug('[CacheState] Lock released', ['lockKey' => $lock->key]);
         }
     }
 
@@ -120,8 +130,13 @@ class CacheStateAdapter implements StateAdapter
         $ttlSeconds = $ttlMs !== null ? max(1, (int) ceil($ttlMs / 1000)) : null;
         $fullKey = $this->prefix.$key;
 
-        // Use add() which returns true only if key didn't exist
-        return Cache::add($fullKey, $value, $ttlSeconds);
+        $result = Cache::add($fullKey, $value, $ttlSeconds);
+
+        if (! $result) {
+            $this->logger->debug('[CacheState] Key already exists (setIfNotExists)', ['key' => $key]);
+        }
+
+        return $result;
     }
 
     public function delete(string $key): void
