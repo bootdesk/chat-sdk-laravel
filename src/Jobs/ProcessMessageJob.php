@@ -11,6 +11,9 @@ use BootDesk\ChatSDK\Core\Message;
 use BootDesk\ChatSDK\Laravel\ChatFactory;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 class ProcessMessageJob implements ShouldQueue
 {
@@ -29,12 +32,24 @@ class ProcessMessageJob implements ShouldQueue
 
     public function handle(ChatFactory $chatFactory): void
     {
+        $logger = $this->resolveLogger();
+        $logger->debug('Processing queued message', [
+            'adapter' => $this->adapterName,
+            'thread' => $this->threadId,
+            'message_id' => $this->message->id,
+            'skipped' => count($this->skippedMessages),
+            'total_since_last' => $this->totalSinceLastHandler,
+        ]);
+
         $request = $this->requestContext?->toPsrRequest();
         $groups = $request?->getAttribute('chat_groups') ?? [$this->adapterName];
         $chat = $chatFactory->forGroups($groups, $request);
         $adapter = $chat->resolveAdapter($this->adapterName, $request);
 
         if (! $adapter instanceof Adapter) {
+            $logger->warning('Adapter not resolvable, releasing lock', [
+                'adapter' => $this->adapterName,
+            ]);
             $this->releaseLock($chat);
 
             return;
@@ -48,8 +63,38 @@ class ProcessMessageJob implements ShouldQueue
                 $this->skippedMessages,
                 $this->totalSinceLastHandler,
             );
+            $logger->debug('Queued message processed successfully', [
+                'adapter' => $this->adapterName,
+                'thread' => $this->threadId,
+            ]);
         } finally {
             $this->releaseLock($chat);
+            $logger->debug('Lock released', [
+                'adapter' => $this->adapterName,
+                'thread' => $this->threadId,
+                'lock_key' => $this->lockKey,
+            ]);
+        }
+    }
+
+    private function resolveLogger(): LoggerInterface
+    {
+        try {
+            $enabled = config('chat.logging.enabled', false);
+
+            if (! $enabled) {
+                return new NullLogger;
+            }
+
+            $channel = config('chat.logging.channel');
+
+            if ($channel !== null) {
+                return Log::channel($channel);
+            }
+
+            return Log::channel();
+        } catch (\Throwable) {
+            return new NullLogger;
         }
     }
 
