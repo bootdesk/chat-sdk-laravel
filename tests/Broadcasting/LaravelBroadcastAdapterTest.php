@@ -207,4 +207,24 @@ class LaravelBroadcastAdapterTest extends TestCase
         $this->assertInstanceOf(PresenceChannel::class, $this->captured[0]['channels'][0]);
         $this->assertSame('presence-chat.web:u1:c1', $this->captured[0]['channels'][0]->name);
     }
+
+    public function test_hashed_thread_and_user_channels_match_the_js_client(): void
+    {
+        $adapter = new LaravelBroadcastAdapter(
+            broadcasterType: 'test',
+            channelPrefix: 'chat',
+            threadChannelType: 'presence',
+            userChannelType: 'presence',
+            useHashChannel: true,
+        );
+
+        $hash = hash('sha256', 'web:u1:c1');
+        $event = new TypingStartedEvent(threadId: 'web:u1:c1', userId: 'u1');
+
+        $adapter->broadcast('web:u1:c1', $event);
+        $adapter->broadcastToUser('web:u1:c1', 'u1', $event);
+
+        $this->assertSame('presence-chat.'.$hash, $this->captured[0]['channels'][0]->name);
+        $this->assertSame('presence-chat.'.$hash.'.u1', $this->captured[1]['channels'][0]->name);
+    }
 }

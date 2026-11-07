@@ -94,7 +94,9 @@ class LaravelBroadcastAdapter implements BroadcastAdapter
 
     protected function buildPrivateChannelName(string $threadId, string $userId): string
     {
-        return "{$this->channelPrefix}.{$threadId}.{$userId}";
+        $name = $this->useHashChannel ? $this->hashChannelName($threadId) : $threadId;
+
+        return "{$this->channelPrefix}.{$name}.{$userId}";
     }
 
     protected function buildPrivateChannel(string $threadId, string $userId): PrivateChannel
